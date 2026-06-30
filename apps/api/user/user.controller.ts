@@ -3,7 +3,6 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import type { Request, Response } from "express";
-import { config } from "../config/env";
 
 const getMe = asyncHandler(async (req: Request, res: Response) => {
   const user = await prisma.user.findUnique({
@@ -19,8 +18,9 @@ const getMe = asyncHandler(async (req: Request, res: Response) => {
 const logout = asyncHandler((_req: Request, res: Response) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: config.nodeEnv === "production",
-    sameSite: "lax",
+    secure: true,
+    sameSite: "none",
+    path: "/",
   });
   res.json(new ApiResponse(200, "Logged out successfully", null));
 });

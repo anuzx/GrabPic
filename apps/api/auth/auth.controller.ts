@@ -21,7 +21,7 @@ const googleAuth = asyncHandler((_req: Request, res: Response) => {
 });
 
 const googleCallback = asyncHandler(async (req: Request, res: Response) => {
-  const code = req.query.code as string | undefined;
+  const code = req.body?.code ?? req.query.code;
   if (!code) {
     throw new ApiError(400, "Missing authorization code");
   }
@@ -96,7 +96,14 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
-  res.redirect(`${config.frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  });
+  res.redirect(301, `${config.frontendUrl}/dashboard`);
 });
 
 const githubAuth = asyncHandler((_req: Request, res: Response) => {
@@ -110,7 +117,7 @@ const githubAuth = asyncHandler((_req: Request, res: Response) => {
 });
 
 const githubCallback = asyncHandler(async (req: Request, res: Response) => {
-  const code = req.query.code as string | undefined;
+  const code = req.body?.code ?? req.query.code;
   if (!code) {
     throw new ApiError(400, "Missing authorization code");
   }
@@ -190,7 +197,14 @@ const githubCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
-  res.redirect(`${config.frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  });
+  res.redirect(301, `${config.frontendUrl}/dashboard`);
 });
 
 export { googleAuth, googleCallback, githubAuth, githubCallback };

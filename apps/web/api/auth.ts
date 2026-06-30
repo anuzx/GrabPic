@@ -1,23 +1,23 @@
-import { getToken, removeToken } from "@/lib/auth";
+import axios from "axios";
 
-function authHeaders(): Record<string, string> {
-  const token = getToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000",
+  withCredentials: true,
+});
 
 export async function getMe() {
   try {
-    const res = await fetch("/api/auth/me", {
-      headers: authHeaders(),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
+    const { data } = await api.get("/api/user/me");
     return data.data ?? null;
   } catch {
     return null;
   }
 }
 
-export function logout() {
-  removeToken();
+export async function logout() {
+  try {
+    await api.post("/api/user/logout");
+  } catch {
+    // ignore
+  }
 }

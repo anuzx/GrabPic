@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/navbar";
-import { getMe } from "@/api/auth";
-import { removeToken } from "@/lib/auth";
+import { getMe, logout } from "@/api/auth";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -22,8 +21,8 @@ export default function Dashboard() {
     });
   }, [router]);
 
-  const handleLogout = () => {
-    removeToken();
+  const handleLogout = async () => {
+    await logout();
     router.replace("/");
   };
 
