@@ -2,7 +2,7 @@ import Link from "next/link";
 import { GoogleButton } from "@/components/google-button";
 import { GithubButton } from "@/components/github-button";
 
-export default function Home() {
+export default function SignIn() {
   return (
     <main className="flex min-h-screen">
       <section className="hidden flex-1 items-center justify-center bg-zinc-50 md:flex">
@@ -18,11 +18,9 @@ export default function Home() {
               GrabPic
             </h1>
             <h2 className="text-2xl font-semibold tracking-tight">
-              Get started
+              Welcome back
             </h2>
-            <p className="text-sm text-zinc-500">
-              Sign in or create an account to continue
-            </p>
+            <p className="text-sm text-zinc-500">Sign in to your account</p>
           </div>
 
           <div className="space-y-3">
@@ -31,12 +29,12 @@ export default function Home() {
           </div>
 
           <p className="text-center text-sm text-zinc-500">
-            Already have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
-              href="/signin"
+              href="/signup"
               className="font-medium text-zinc-900 underline underline-offset-4 hover:text-zinc-600"
             >
-              Sign in
+              Sign up
             </Link>
           </p>
         </div>

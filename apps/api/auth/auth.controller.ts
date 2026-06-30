@@ -1,7 +1,6 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import { ApiError } from "../utils/ApiError";
-import { ApiResponse } from "../utils/ApiResponse";
 import { config } from "../config/env";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
@@ -36,7 +35,7 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
       redirect_uri: config.googleRedirectUri,
       grant_type: "authorization_code",
     }),
-    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } },
   );
 
   const client = new OAuth2Client(config.googleClientId);
@@ -97,34 +96,101 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: config.nodeEnv === "production",
-    sameSite: "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-
-  res.redirect(config.frontendUrl);
+  res.redirect(`${config.frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
 });
 
-const getMe = asyncHandler(async (req: Request, res: Response) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.userId },
-    select: { id: true, name: true, email: true },
+const githubAuth = asyncHandler((_req: Request, res: Response) => {
+  const params = new URLSearchParams({
+    client_id: config.githubClientId,
+    redirect_uri: config.githubRedirectUri,
+    scope: "read:user user:email",
   });
-  if (!user) {
-    throw new ApiError(404, "User not found");
+
+  res.redirect(`https://github.com/login/oauth/authorize?${params}`);
+});
+
+const githubCallback = asyncHandler(async (req: Request, res: Response) => {
+  const code = req.query.code as string | undefined;
+  if (!code) {
+    throw new ApiError(400, "Missing authorization code");
   }
-  res.json(new ApiResponse(200, "User fetched", user));
-});
 
-const logout = asyncHandler((_req: Request, res: Response) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: config.nodeEnv === "production",
-    sameSite: "lax",
+  const { data: tokenData } = await axios.post(
+    "https://github.com/login/oauth/access_token",
+    {
+      client_id: config.githubClientId,
+      client_secret: config.githubClientSecret,
+      code,
+      redirect_uri: config.githubRedirectUri,
+    },
+    {
+      headers: { Accept: "application/json" },
+    },
+  );
+
+  if (!tokenData.access_token) {
+    throw new ApiError(400, "Failed to get GitHub access token");
+  }
+
+  const { data: ghUser } = await axios.get("https://api.github.com/user", {
+    headers: { Authorization: `Bearer ${tokenData.access_token}` },
   });
-  res.json(new ApiResponse(200, "Logged out successfully", null));
+
+  let email = ghUser.email;
+  if (!email) {
+    const { data: emails } = await axios.get(
+      "https://api.github.com/user/emails",
+      {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      },
+    );
+    email = emails.find((e: any) => e.primary)?.email ?? null;
+  }
+
+  if (!email) {
+    throw new ApiError(400, "No email found from GitHub");
+  }
+
+  let user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        email,
+        name: ghUser.name ?? ghUser.login,
+      },
+    });
+  }
+
+  await prisma.account.upsert({
+    where: {
+      provider_providerAccountId: {
+        provider: "github",
+        providerAccountId: String(ghUser.id),
+      },
+    },
+    create: {
+      userId: user.id,
+      provider: "github",
+      providerAccountId: String(ghUser.id),
+      accessToken: tokenData.access_token,
+      refreshToken: null,
+      expiresAt: null,
+      tokenType: "bearer",
+      scope: "read:user user:email",
+    },
+    update: {
+      accessToken: tokenData.access_token,
+    },
+  });
+
+  const token = jwt.sign({ userId: user.id }, config.jwtSecret, {
+    expiresIn: "7d",
+  });
+
+  res.redirect(`${config.frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`);
 });
 
-export { googleAuth, googleCallback, getMe, logout };
+export { googleAuth, googleCallback, githubAuth, githubCallback };

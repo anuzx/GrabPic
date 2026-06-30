@@ -2,7 +2,6 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import authRouter from "./auth/auth.route";
 import { config } from "./config/env";
 import { ApiResponse } from "./utils/ApiResponse";
 import { ApiError } from "./utils/ApiError";
@@ -13,12 +12,16 @@ app.use(
   cors({
     origin: config.frontendUrl,
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 app.use(cookieParser());
 
+import authRouter from "./auth/auth.route";
+import userRouter from "./user/user.route";
+
 app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
@@ -27,5 +30,5 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 app.listen(Number(config.port), () =>
-  console.log(`server running at port ${config.port}`)
+  console.log(`server running at port ${config.port}`),
 );
