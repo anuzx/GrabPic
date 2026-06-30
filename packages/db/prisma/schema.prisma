@@ -13,24 +13,15 @@ datasource db {
 }
 
 model User {
-  id String @id @default(cuid())
+  id            String @id @default(uuid())
 
-  name         String
-  email        String  @unique
-  passwordHash String?
+  name          String
+  email         String  @unique
 
-  avatarUrl String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  emailVerified Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  accounts Account[]
-
-  events Event[]
-
-  participations Participant[]
+  accounts      Account[]
 }
 
 model Account {
