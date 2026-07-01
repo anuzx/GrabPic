@@ -1,7 +1,7 @@
 import { prisma } from "db";
-import { asyncHandler } from "../utils/asyncHandler";
-import { ApiError } from "../utils/ApiError";
-import { ApiResponse } from "../utils/ApiResponse";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { ApiError } from "../../utils/ApiError";
+import { ApiResponse } from "../../utils/ApiResponse";
 import type { Request, Response } from "express";
 
 const getMe = asyncHandler(async (req: Request, res: Response) => {

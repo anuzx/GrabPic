@@ -4,8 +4,8 @@ import {
   joinEvent,
   allEvents,
   getEventById,
-} from "./event.controller";
-import { authenticate } from "../auth/auth.middleware";
+} from "./event.controllers";
+import { authenticate } from "../../middlewares/auth.middleware";
 
 const router = Router();
 

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler";
-import { ApiError } from "../utils/ApiError";
-import { config } from "../config/env";
+import { asyncHandler } from "../../utils/asyncHandler";
+import { ApiError } from "../../utils/ApiError";
+import { config } from "../../config/env";
 import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";

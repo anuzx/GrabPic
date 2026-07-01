@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import type { NextFunction, Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -7,6 +8,10 @@ import { ApiResponse } from "./utils/ApiResponse";
 import { ApiError } from "./utils/ApiError";
 
 const app = express();
+
+app.set("trust proxy", 1);
+
+app.use(helmet());
 
 app.use(
   cors({
@@ -17,9 +22,9 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-import authRouter from "./auth/auth.route";
-import userRouter from "./user/user.route";
-import eventsRouter from "./events/event.route";
+import authRouter from "./modules/auth/auth.routes";
+import userRouter from "./modules/user/user.route";
+import eventsRouter from "./modules/events/event.routes";
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);

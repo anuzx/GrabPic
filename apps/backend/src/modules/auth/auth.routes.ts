@@ -4,7 +4,7 @@ import {
   googleCallback,
   githubAuth,
   githubCallback,
-} from "./auth.controller";
+} from "./auth.controllers";
 
 const router = Router();
 

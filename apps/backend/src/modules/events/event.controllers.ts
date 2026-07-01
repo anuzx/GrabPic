@@ -1,17 +1,16 @@
-import type { Request, Response } from "express";
-import { asyncHandler } from "../utils/asyncHandler";
+import { asyncHandler } from "../../utils/asyncHandler";
 import { prisma } from "db";
-import { CreateEventSchema, JoinEventSchema } from "../validator/schema";
-import { ApiError } from "../utils/ApiError";
-import { ApiResponse } from "../utils/ApiResponse";
-import { generateEventCode } from "../services/eventCode";
+import { CreateEventSchema, JoinEventSchema } from "./event.schemas";
+import { ApiError } from "../../utils/ApiError";
+import { ApiResponse } from "../../utils/ApiResponse";
+import { generateEventCode } from "./event.helpers";
 
-const createEvent = asyncHandler(async (req: Request, res: Response) => {
+const createEvent = asyncHandler(async (req, res) => {
   const userId = req.userId;
   const { data, success } = CreateEventSchema.safeParse(req.body);
 
   if (!success) {
-    throw new ApiError(400, "inavlid input");
+    throw new ApiError(400, "invalid input");
   }
 
   const { title, description } = data;
@@ -33,9 +32,7 @@ const createEvent = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 
-  return res
-    .status(201)
-    .json(new ApiResponse(200, "event created", { event: { ...event, code } }));
+  return res.status(201).json(new ApiResponse(201, "event created", { event }));
 });
 
 const joinEvent = asyncHandler(async (req, res) => {
@@ -91,6 +88,7 @@ const allEvents = asyncHandler(async (req, res) => {
           id: true,
           title: true,
           description: true,
+          code: true,
         },
       },
     },
@@ -127,6 +125,10 @@ const getEventById = asyncHandler(async (req, res) => {
       },
     },
   });
+
+  if (!event) {
+    throw new ApiError(404, "Event does not exist");
+  }
 
   res.json(new ApiResponse(200, "event fetched", event));
 });
