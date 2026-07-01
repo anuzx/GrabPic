@@ -19,9 +19,11 @@ app.use(cookieParser());
 
 import authRouter from "./auth/auth.route";
 import userRouter from "./user/user.route";
+import eventsRouter from "./events/event.route";
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
+app.use("/api/events", eventsRouter);
 
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   const statusCode = err instanceof ApiError ? err.statusCode : 500;

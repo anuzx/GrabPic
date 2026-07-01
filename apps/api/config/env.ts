@@ -9,6 +9,9 @@ const _config = {
   jwtSecret: process.env.JWT_SECRET!,
   frontendUrl: process.env.FRONTEND_URL!,
   nodeEnv: process.env.NODE_ENV ?? "development",
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
+  cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
 } as const;
 
 const required = [
@@ -20,6 +23,9 @@ const required = [
   "githubRedirectUri",
   "jwtSecret",
   "frontendUrl",
+  "cloudinaryCloudName",
+  "cloudinaryApiKey",
+  "cloudinaryApiSecret",
 ] as const satisfies readonly (keyof typeof _config)[];
 
 for (const key of required) {

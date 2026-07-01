@@ -21,7 +21,7 @@ const googleAuth = asyncHandler((_req: Request, res: Response) => {
 });
 
 const googleCallback = asyncHandler(async (req: Request, res: Response) => {
-  const code = req.body?.code ?? req.query.code;
+  const code = req.query.code as string;
   if (!code) {
     throw new ApiError(400, "Missing authorization code");
   }
@@ -117,7 +117,7 @@ const githubAuth = asyncHandler((_req: Request, res: Response) => {
 });
 
 const githubCallback = asyncHandler(async (req: Request, res: Response) => {
-  const code = req.body?.code ?? req.query.code;
+  const code = req.query.code as string;
   if (!code) {
     throw new ApiError(400, "Missing authorization code");
   }
