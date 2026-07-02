@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "devDependencies": {
+    "@types/archiver": "^8.0.0",
     "@types/bun": "latest",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -12,6 +13,7 @@
     "@types/jsonwebtoken": "^9.0.10"
   },
   "dependencies": {
+    "archiver": "^8.0.0",
     "axios": "^1.18.1",
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",

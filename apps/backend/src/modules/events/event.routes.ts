@@ -6,7 +6,11 @@ import {
   getEventById,
   getAllPhotos,
   removeEvent,
-  leaveEvent
+  leaveEvent,
+  getSignedUrl,
+  confirmPhotos,
+  searchFace,
+  downloadPhotos,
 } from "./event.controllers";
 import { authenticate } from "../../middlewares/auth.middleware";
 
@@ -14,13 +18,16 @@ const router = Router();
 
 router.use(authenticate);
 
-router.route("/")
-  .post(createEvent)
-  .get(allEvents)
-  .delete(removeEvent);
+router.route("/").post(createEvent).get(allEvents).delete(removeEvent);
 
 router.get("/join", joinEvent);
 router.get("/:eventId", getEventById);
 router.get("/:eventId/photos", getAllPhotos);
-router.post("/:eventId/leave", leaveEvent)
+router.post("/:eventId/leave", leaveEvent);
+
+router.get("/:eventId/signed-url", getSignedUrl);
+
+router.post("/:eventId/photos/confirm", confirmPhotos);
+router.post("/:eventId/photos/search-face", searchFace);
+router.post("/:eventId/download" , downloadPhotos)
 export default router;

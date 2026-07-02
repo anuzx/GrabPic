@@ -4,6 +4,10 @@ import { CreateEventSchema, JoinEventSchema } from "./event.schemas";
 import { ApiError } from "../../utils/ApiError";
 import { ApiResponse } from "../../utils/ApiResponse";
 import { generateEventCode } from "./event.helpers";
+import { cloudinary } from "../../config/cloudinary";
+import { config } from "../../config/env";
+import { redis } from "../../config/redis";
+import { ZipArchive } from "archiver";
 
 const createEvent = asyncHandler(async (req, res) => {
   const userId = req.userId;
@@ -227,6 +231,193 @@ const leaveEvent = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, "Left event successfully", null));
 });
 
+const getSignedUrl = asyncHandler(async (req, res) => {
+  const eventId = req.params.eventId! as string;
+  const userId = req.userId;
+
+  const membership = await prisma.eventMember.findUnique({
+    where: {
+      eventId_userId: {
+        eventId,
+        userId,
+      },
+    },
+  });
+
+  if (!membership) {
+    throw new ApiError(403, "Only the event members can upload photos");
+  }
+  const timestamp = Math.round(Date.now() / 1000);
+  const params = { timestamp, folder: `events/${eventId}` };
+  const signature = cloudinary.utils.api_sign_request(
+    params,
+    config.cloudinaryApiSecret,
+  );
+
+  res.json({
+    signature,
+    timestamp,
+    apiKey: config.cloudinaryApiKey,
+    cloudName: config.cloudinaryCloudName,
+    folder: `events/${eventId}`,
+  });
+});
+
+/**
+ * OWNER bulk push in db and send photoIds to ai-service for creating embeddings
+ */
+const confirmPhotos = asyncHandler(async (req, res) => {
+  const userId = req.userId;
+  const eventId = req.params.eventId! as string;
+
+  const membership = await prisma.eventMember.findUnique({
+    where: {
+      eventId_userId: {
+        eventId,
+        userId,
+      },
+    },
+  });
+
+  if (!membership || membership.role !== "OWNER") {
+    throw new ApiError(403, "Only the event owner can upload photos");
+  }
+
+  //Validate body
+  const { photos } = req.body; // [{ publicId, url, width, height }]
+  if (!Array.isArray(photos) || photos.length === 0) {
+    throw new ApiError(400, "No photos provided");
+  }
+
+  const created = await prisma.photo.createManyAndReturn({
+    data: photos.map((p) => ({
+      eventId,
+      uploadedById: userId,
+      url: p.url,
+      publicId: p.publicId,
+      width: p.width ?? null,
+      height: p.height ?? null,
+    })),
+  });
+
+  const photoIds = created.map((p) => p.id);
+
+  //Push to Redis stream for AI processing
+  //Stream: "photo:process"  Entry: { eventId, photoIds: JSON.stringify(photoIds) }
+  await redis.xAdd(
+    "photo:process",
+    "*", // auto-generated ID
+    {
+      eventId,
+      photoIds: JSON.stringify(photoIds),
+    },
+  );
+
+  res.status(200).json(
+    new ApiResponse(200, "Photos uploaded, processing queued", {
+      count: photoIds.length,
+    }),
+  );
+});
+
+const searchFace = asyncHandler(async (req, res) => {
+  const eventId = req.params.eventId! as string;
+  const userId = req.userId;
+
+  const membership = await prisma.eventMember.findUnique({
+    where: { eventId_userId: { eventId, userId } },
+  });
+  if (!membership) {
+    throw new ApiError(403, "Not a member of this event");
+  }
+
+  const { facePhotoUrl } = req.body;
+  if (!facePhotoUrl) {
+    throw new ApiError(400, "facePhotoUrl is required");
+  }
+
+  //This needs a synchronous response member is waiting to see their photos
+  const aiResp = await fetch(`${config.aiServiceUrl}/search-face`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eventId, facePhotoUrl }),
+  });
+
+  if (!aiResp.ok) {
+    throw new ApiError(502, "Face search failed");
+  }
+
+  const data = (await aiResp.json()) as { photoIds: string[] };
+  const { photoIds } = data;
+
+  //Fetch matching photos from DB
+  const photos = await prisma.photo.findMany({
+    where: { id: { in: photoIds }, eventId },
+  });
+
+  //Restore order to match ai-service ranking
+  const ordered = photoIds
+    .map((id: string) => photos.find((p) => p.id === id))
+    .filter(Boolean) as typeof photos;
+
+  res.json(new ApiResponse(200, "Photos found", { photos: ordered }));
+});
+
+const downloadPhotos = asyncHandler(async (req, res) => {
+  const userId = req.userId;
+  const eventId = req.params.eventId! as string;
+
+  const membership = await prisma.eventMember.findUnique({
+    where: { eventId_userId: { eventId, userId } },
+  });
+  if (!membership) throw new ApiError(403, "Not a member");
+
+  const { photoIds } = req.body;
+  if (!Array.isArray(photoIds) || photoIds.length === 0) {
+    throw new ApiError(400, "photoIds is required");
+  }
+
+  const photos = await prisma.photo.findMany({
+    where: { id: { in: photoIds }, eventId },
+  });
+  if (photos.length === 0) throw new ApiError(404, "No photos found");
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="event-${eventId}-photos.zip"`,
+  );
+
+  const archive = new ZipArchive({ zlib: { level: 5 } });
+
+  //Error handler before pipe
+  archive.on("error", () => {
+    res.end();
+  });
+
+  archive.pipe(res);
+
+  //Concurrent with chunking (10 at a time)
+  const CHUNK_SIZE = 10;
+  for (let i = 0; i < photos.length; i += CHUNK_SIZE) {
+    const chunk = photos.slice(i, i + CHUNK_SIZE);
+    const results = await Promise.allSettled(
+      chunk.map(async (photo) => {
+        const resp = await fetch(photo.url);
+        if (!resp.ok) return null;
+        return { id: photo.id, buffer: Buffer.from(await resp.arrayBuffer()) };
+      }),
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value) {
+        archive.append(r.value.buffer, { name: `${r.value.id}.jpg` });
+      }
+    }
+  }
+
+  await archive.finalize();
+});
+
 export {
   createEvent,
   joinEvent,
@@ -235,4 +426,8 @@ export {
   getAllPhotos,
   removeEvent,
   leaveEvent,
+  getSignedUrl,
+  confirmPhotos,
+  searchFace,
+  downloadPhotos,
 };

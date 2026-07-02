@@ -10,6 +10,10 @@
 8. `GET /api/events/:eventId` — get event by its id- (done)
 9. `DELETE /api/events/:eventId` — (owner only) delete event + cascade all photos/members -(done)
 10. `POST /api/events/:eventId/leave`  — (members only) remove self from event memberships -(done)
-11. `GET /api/events/:eventId/photos?cursor=<lastPhotoId>` — returns all the photos of the event in pagination manner -(done) 
-9. `POST /api/events/:eventId/photos/upload` — upload photos 
-10. `POST /api/events/:eventId/photos/search` — upload selfie -> send to ai-service -> return matched photo ids
+11. `GET /api/events/:eventId/photos?cursor=<lastPhotoId>` — returns all the photos of the event in pagination manner -(done)
+12. `GET /api/events/:eventId/signed-url`— get signed url -(done) 
+13. `POST /api/events/:eventId/photos/confirm` — bulk upload -> ai-service call (owner only) -(done)
+14. `POST /api/events/:eventId/photos/search-face` — upload selfie -> send to ai-service -> return matched photo ids -(done)
+15. `POST /api/users/logout` — logout user -(done) 
+16. `POST /api/events/:eventId/download`— users can download their photos from an event -(done)
+17. `GET /api/users/me`  — user info -(done)
