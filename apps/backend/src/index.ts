@@ -1,41 +1,41 @@
-import express from "express";
-import helmet from "helmet";
-import type { NextFunction, Request, Response } from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import { config } from "./config/env";
-import { ApiResponse } from "./utils/ApiResponse";
-import { ApiError } from "./utils/ApiError";
+import { app } from "./app.js";
+import { config } from "./config/env.js";
+import { logger } from "./config/logger.js";
+import { prisma } from "db";
+import { redis } from "./config/redis.js";
 
-const app = express();
+const port = Number(config.port);
 
-app.set("trust proxy", 1);
-
-app.use(helmet());
-
-app.use(
-  cors({
-    origin: config.frontendUrl,
-    credentials: true,
-  }),
-);
-app.use(express.json());
-app.use(cookieParser());
-
-import authRouter from "./modules/auth/auth.routes";
-import userRouter from "./modules/user/user.route";
-import eventsRouter from "./modules/events/event.routes";
-
-app.use("/api/auth", authRouter);
-app.use("/api/user", userRouter);
-app.use("/api/events", eventsRouter);
-
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  const statusCode = err instanceof ApiError ? err.statusCode : 500;
-  const message = err.message || "Internal server error";
-  res.status(statusCode).json(new ApiResponse(statusCode, message, null));
+const server = app.listen(port, () => {
+  logger.info(`Server running on port ${port}`);
 });
 
-app.listen(Number(config.port), () =>
-  console.log(`server running at port ${config.port}`),
-);
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`${signal} received. Shutting down gracefully...`);
+
+  server.close(async () => {
+    await prisma.$disconnect();
+    await redis.quit();
+
+    logger.info("Database disconnected");
+    logger.info("Redis disconnected");
+
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+process.on("uncaughtException", (error) => {
+  logger.error(error);
+
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error(reason);
+
+  process.exit(1);
+});

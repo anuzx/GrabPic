@@ -1,36 +1,26 @@
-import type { Request, Response, NextFunction } from "express";
-import { createClient } from "redis";
+import { rateLimit } from "express-rate-limit";
+import type { Request, Response } from "express";
 
-const client = createClient();
-await client.connect();
-
-const LIMIT = 5;
-const WINDOW = 60;
-
-export async function rateLimiter(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const userId = req.userId;
-
-    const key = `rate_limit:${userId}`;
-
-    const current = await client.incr(key);
-
-    if (current === 1) {
-      await client.expire(key, WINDOW);
-    }
-
-    if (current > LIMIT) {
-      return res.status(429).json({
-        message: "Too many requests",
-      });
-    }
-
-    next();
-  } catch (err) {
-    next(err);
-  }
+interface RateLimitedRequest extends Request {
+  rateLimit?: {
+    limit: number;
+    used: number;
+    remaining: number;
+    resetTime?: Date;
+  };
 }
+
+const globalRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req: RateLimitedRequest, res: Response) => {
+    res.status(429).json({
+      message: "too many requests",
+      retryAfter: req.rateLimit?.resetTime,
+    });
+  },
+});
+
+export { globalRateLimiter };

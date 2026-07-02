@@ -12,6 +12,7 @@ const _config = {
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
+  redis_url:process.env.REDIS_URL!
 } as const;
 
 const required = [
