@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { config } from "../config/env";
 import { prisma } from "db";
 import { ApiError } from "../utils/ApiError";
+import { redis } from "../config/redis";
 
 declare global {
   namespace Express {
@@ -27,7 +28,18 @@ export const authenticate = async (
       throw new ApiError(401, "Not authenticated");
     }
 
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as {
+      userId: string;
+      jti?: string;
+    };
+
+    if (decoded.jti) {
+      const blacklisted = await redis.get(`blacklist:jwt:${decoded.jti}`);
+      if (blacklisted) {
+        throw new ApiError(401, "Token has been revoked");
+      }
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
     });

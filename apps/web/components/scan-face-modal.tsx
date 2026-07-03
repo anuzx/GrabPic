@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { getSignedUrl, searchFace, type PhotoData } from "@/api/events";
+import { searchFace, type PhotoData } from "@/api/events";
 
 interface ScanFaceModalProps {
   open: boolean;
@@ -30,25 +30,7 @@ export function ScanFaceModal({ open, onClose, eventId, onPhotosFound }: ScanFac
     setScanning(true);
 
     try {
-      const signed = await getSignedUrl(eventId);
-
-      const formData = new FormData();
-      formData.append("file", selfie);
-      formData.append("api_key", signed.apiKey);
-      formData.append("timestamp", String(signed.timestamp));
-      formData.append("signature", signed.signature);
-      formData.append("folder", signed.folder);
-
-      const uploadResp = await fetch(
-        `https://api.cloudinary.com/v1_1/${signed.cloudName}/image/upload`,
-        { method: "POST", body: formData },
-      );
-
-      if (!uploadResp.ok) throw new Error("Failed to upload selfie");
-
-      const uploaded = await uploadResp.json();
-
-      const result = await searchFace(eventId, uploaded.secure_url);
+      const result = await searchFace(eventId, selfie);
       onPhotosFound(result.photos);
       onClose();
     } catch (e: any) {

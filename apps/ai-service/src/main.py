@@ -2,16 +2,17 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+import cv2
+import numpy as np
+from fastapi import FastAPI, HTTPException, Query, Request
 
 from src.config import settings
 from src.schemas.requests import (
     ProcessPhotosRequest,
-    SearchFaceRequest,
     ProcessPhotosResponse,
     SearchFaceResponse,
 )
-from src.services.face_service import process_single_photo, extract_embeddings, download_image
+from src.services.face_service import process_single_photo, extract_embeddings
 from src.services.vector_store import ensure_table, fetch_photo_urls, insert_embeddings, search_similar_faces
 from src.worker.worker import start_worker
 
@@ -72,18 +73,22 @@ async def process_photos(req: ProcessPhotosRequest):
 
 
 @app.post("/search-face", response_model=SearchFaceResponse)
-async def search_face(req: SearchFaceRequest):
-    try:
-        img = await download_image(req.facePhotoUrl)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to download face photo: {e}")
+async def search_face(request: Request, eventId: str = Query(...)):
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=400, detail="Image data is required")
+
+    buf = np.frombuffer(body, dtype=np.uint8)
+    img = cv2.imdecode(buf, cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(status_code=400, detail="Failed to decode image")
 
     embeddings = extract_embeddings(img)
     if not embeddings:
         raise HTTPException(status_code=400, detail="No face detected in the uploaded photo")
 
     query_emb = embeddings[0]
-    results = await search_similar_faces(req.eventId, query_emb)
+    results = await search_similar_faces(eventId, query_emb)
 
     photo_ids = [r["photo_id"] for r in results]
     return SearchFaceResponse(photoIds=photo_ids)

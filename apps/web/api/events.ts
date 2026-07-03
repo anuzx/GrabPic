@@ -99,8 +99,10 @@ export async function confirmPhotos(eventId: string, photos: ConfirmPhoto[]) {
   return data.data as { count: number };
 }
 
-export async function searchFace(eventId: string, facePhotoUrl: string) {
-  const { data } = await api.post(`/api/events/${eventId}/photos/search-face`, { facePhotoUrl });
+export async function searchFace(eventId: string, selfie: File) {
+  const formData = new FormData();
+  formData.append("selfie", selfie);
+  const { data } = await api.post(`/api/events/${eventId}/photos/search-face`, formData);
   return data.data as { photos: PhotoData[] };
 }
 

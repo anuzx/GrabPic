@@ -92,7 +92,7 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 
-  const token = jwt.sign({ userId: user.id }, config.jwtSecret, {
+  const token = jwt.sign({ userId: user.id, jti: crypto.randomUUID() }, config.jwtSecret, {
     expiresIn: "7d",
   });
 
@@ -193,7 +193,7 @@ const githubCallback = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 
-  const token = jwt.sign({ userId: user.id }, config.jwtSecret, {
+  const token = jwt.sign({ userId: user.id, jti: crypto.randomUUID() }, config.jwtSecret, {
     expiresIn: "7d",
   });
 
