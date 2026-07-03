@@ -1,9 +1,11 @@
 import { cn } from "@/lib/utils";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+
 export function GithubButton() {
   return (
     <a
-      href="http://localhost:5000/api/auth/github"
+      href={`${API_URL}/api/auth/github`}
       className={cn(
         "inline-flex items-center justify-center gap-3 whitespace-nowrap rounded-md border border-zinc-200 bg-white px-8 py-2.5 text-sm font-medium shadow-sm transition-colors hover:bg-zinc-100",
         "h-10 w-full",
