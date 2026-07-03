@@ -5,21 +5,111 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
     # via pydantic
 anyio==4.14.1
-    # via starlette
+    # via
+    #   httpx
+    #   starlette
+asyncpg==0.31.0
+    # via ai-service
+certifi==2026.6.17
+    # via
+    #   httpcore
+    #   httpx
+    #   requests
+charset-normalizer==3.4.7
+    # via requests
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via tqdm
 fastapi==0.138.2
     # via ai-service
+flatbuffers==25.12.19
+    # via onnxruntime
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via ai-service
 idna==3.18
-    # via anyio
+    # via
+    #   anyio
+    #   httpx
+    #   requests
+imageio==2.37.3
+    # via scikit-image
+insightface==1.0.1
+    # via ai-service
+lazy-loader==0.5
+    # via scikit-image
+ml-dtypes==0.5.4
+    # via onnx
+networkx==3.6.1
+    # via scikit-image
+numpy==2.5.0
+    # via
+    #   ai-service
+    #   imageio
+    #   insightface
+    #   ml-dtypes
+    #   onnx
+    #   onnxruntime
+    #   opencv-python
+    #   opencv-python-headless
+    #   scikit-image
+    #   scipy
+    #   tifffile
+onnx==1.22.0
+    # via insightface
+onnxruntime==1.27.0
+    # via insightface
+opencv-python==5.0.0.93
+    # via insightface
+opencv-python-headless==5.0.0.93
+    # via ai-service
+packaging==26.2
+    # via
+    #   lazy-loader
+    #   onnxruntime
+    #   scikit-image
+pillow==12.3.0
+    # via
+    #   imageio
+    #   scikit-image
+protobuf==7.35.1
+    # via
+    #   onnx
+    #   onnxruntime
 pydantic==2.13.4
-    # via fastapi
+    # via
+    #   ai-service
+    #   fastapi
+    #   pydantic-settings
 pydantic-core==2.46.4
     # via pydantic
+pydantic-settings==2.14.2
+    # via ai-service
+python-dotenv==1.2.2
+    # via pydantic-settings
+redis==8.0.1
+    # via ai-service
+requests==2.34.2
+    # via insightface
+scikit-image==0.26.0
+    # via insightface
+scipy==1.18.0
+    # via
+    #   insightface
+    #   scikit-image
 starlette==1.3.1
     # via fastapi
+tifffile==2026.6.1
+    # via scikit-image
+tqdm==4.68.3
+    # via insightface
 typing-extensions==4.15.0
     # via
     #   anyio
     #   fastapi
+    #   onnx
     #   pydantic
     #   pydantic-core
     #   starlette
@@ -28,3 +118,6 @@ typing-inspection==0.4.2
     # via
     #   fastapi
     #   pydantic
+    #   pydantic-settings
+urllib3==2.7.0
+    # via requests
