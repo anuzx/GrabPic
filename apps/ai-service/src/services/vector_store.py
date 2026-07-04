@@ -1,6 +1,7 @@
 import asyncpg
 import numpy as np
 from src.config import settings
+from src.models.face import SearchResult
 
 _pool: asyncpg.Pool | None = None
 
@@ -46,6 +47,15 @@ async def fetch_photo_urls(photo_ids: list[str]) -> dict[str, str]:
     return {row["id"]: row["url"] for row in rows}
 
 
+async def delete_embeddings_by_photo_ids(photo_ids: list[str]):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM face_embeddings WHERE photo_id = ANY($1::text[])",
+            photo_ids,
+        )
+
+
 async def insert_embeddings(
     photo_id: str,
     event_id: str,
@@ -72,7 +82,7 @@ async def search_similar_faces(
     query_embedding: np.ndarray,
     limit: int = 20,
     threshold: float = 0.3,
-) -> list[dict]:
+) -> list[SearchResult]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -89,4 +99,7 @@ async def search_similar_faces(
             threshold,
             limit,
         )
-    return [{"photo_id": r["photo_id"], "similarity": float(r["similarity"])} for r in rows]
+    return [
+        SearchResult(photo_id=r["photo_id"], similarity=float(r["similarity"]))
+        for r in rows
+    ]

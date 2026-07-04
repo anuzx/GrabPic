@@ -17,24 +17,27 @@ export function ScanFaceModal({ open, onClose, eventId, onPhotosFound }: ScanFac
   const [selfie, setSelfie] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelfie(file);
     setPreview(URL.createObjectURL(file));
+    setError(null);
   };
 
   const handleScan = async () => {
     if (!selfie) return;
     setScanning(true);
+    setError(null);
 
     try {
       const result = await searchFace(eventId, selfie);
       onPhotosFound(result.photos);
       onClose();
     } catch (e: any) {
-      alert(e.message || "Face search failed");
+      setError(e.response?.data?.message || e.message || "Face search failed. Please try again.");
     } finally {
       setScanning(false);
     }
@@ -89,6 +92,9 @@ export function ScanFaceModal({ open, onClose, eventId, onPhotosFound }: ScanFac
           </button>
         )}
 
+        {error && (
+          <p className="text-sm text-red-500 text-center">{error}</p>
+        )}
         <p className="text-xs text-zinc-400 text-center">
           Your selfie is uploaded temporarily for face matching and not stored.
         </p>
@@ -99,7 +105,7 @@ export function ScanFaceModal({ open, onClose, eventId, onPhotosFound }: ScanFac
           Cancel
         </Button>
         <Button onClick={handleScan} disabled={!selfie || scanning}>
-          {scanning ? "Searching..." : "Find My Photos"}
+          {scanning ? "Searching..." : error ? "Retry" : "Find My Photos"}
         </Button>
       </DialogFooter>
     </Dialog>

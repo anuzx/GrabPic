@@ -22,9 +22,10 @@ logger = logging.getLogger("ai-service")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await ensure_table()
-    worker_task = None
+    worker_task: asyncio.Task[None] | None = None
     if settings.redis_url:
         worker_task = asyncio.create_task(start_worker())
+        worker_task.add_done_callback(_worker_done)
     yield
     if worker_task:
         worker_task.cancel()
@@ -32,6 +33,14 @@ async def lifespan(app: FastAPI):
             await worker_task
         except asyncio.CancelledError:
             pass
+
+
+def _worker_done(task: asyncio.Task[None]) -> None:
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc:
+        logger.critical("Worker task crashed: %s", exc)
 
 
 app = FastAPI(title="GrabPic AI Service", lifespan=lifespan)
@@ -83,12 +92,12 @@ async def search_face(request: Request, eventId: str = Query(...)):
     if img is None:
         raise HTTPException(status_code=400, detail="Failed to decode image")
 
-    embeddings = extract_embeddings(img)
+    embeddings = await extract_embeddings(img)
     if not embeddings:
         raise HTTPException(status_code=400, detail="No face detected in the uploaded photo")
 
     query_emb = embeddings[0]
     results = await search_similar_faces(eventId, query_emb)
 
-    photo_ids = [r["photo_id"] for r in results]
+    photo_ids = [r.photo_id for r in results]
     return SearchFaceResponse(photoIds=photo_ids)

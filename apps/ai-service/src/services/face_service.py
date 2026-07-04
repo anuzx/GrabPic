@@ -1,14 +1,21 @@
+import asyncio
+
 import cv2
 import numpy as np
 import httpx
 from insightface.app import FaceAnalysis
 
 _model: FaceAnalysis | None = None
+_init_lock: asyncio.Lock = asyncio.Lock()
 
 
-def get_model() -> FaceAnalysis:
+async def get_model() -> FaceAnalysis:
     global _model
-    if _model is None:
+    if _model is not None:
+        return _model
+    async with _init_lock:
+        if _model is not None:
+            return _model
         app = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
         app.prepare(ctx_id=-1)
         _model = app
@@ -26,12 +33,12 @@ async def download_image(url: str) -> np.ndarray:
     return img
 
 
-def extract_embeddings(image: np.ndarray) -> list[np.ndarray]:
-    model = get_model()
+async def extract_embeddings(image: np.ndarray) -> list[np.ndarray]:
+    model = await get_model()
     faces = model.get(image)
     return [face.normed_embedding for face in faces]
 
 
 async def process_single_photo(url: str) -> list[np.ndarray]:
     img = await download_image(url)
-    return extract_embeddings(img)
+    return await extract_embeddings(img)

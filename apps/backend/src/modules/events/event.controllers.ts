@@ -3,7 +3,7 @@ import { prisma } from "db";
 import { CreateEventSchema, JoinEventSchema } from "./event.schemas";
 import { ApiError } from "../../utils/ApiError";
 import { ApiResponse } from "../../utils/ApiResponse";
-import { generateEventCode } from "./event.helpers";
+import { fetchWithRetry, generateEventCode } from "./event.helpers";
 import { cloudinary } from "../../config/cloudinary";
 import { config } from "../../config/env";
 import { redis } from "../../config/redis";
@@ -328,6 +328,8 @@ const confirmPhotos = asyncHandler(async (req, res) => {
   );
 });
 
+
+
 const searchFace = asyncHandler(async (req, res) => {
   const eventId = req.params.eventId! as string;
   const userId = req.userId;
@@ -349,7 +351,7 @@ const searchFace = asyncHandler(async (req, res) => {
   const imageBuffer = file.buffer ?? (await readFile(file.path));
 
   try {
-    const aiResp = await fetch(
+    const aiResp = await fetchWithRetry(
       `${config.aiServiceUrl}/search-face?eventId=${eventId}`,
       {
         method: "POST",
@@ -359,7 +361,7 @@ const searchFace = asyncHandler(async (req, res) => {
     );
 
     if (!aiResp.ok) {
-      throw new ApiError(502, "Face search failed");
+      throw new ApiError(502, "Face search failed after retries");
     }
 
     const data = (await aiResp.json()) as { photoIds: string[] };

@@ -21,8 +21,8 @@ import {
 import type { Request } from "express";
 
 defineBucket("photoUpload", {
-  maxTokens: 250,
-  refillRate: 25,
+  maxTokens: 500,
+  refillRate: 50,
   refillIntervalMs: 1000,
   getTokenCost: (req: Request) => {
     const photos = req.body?.photos;
