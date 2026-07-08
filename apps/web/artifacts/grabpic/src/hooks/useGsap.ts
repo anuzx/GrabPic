@@ -39,9 +39,9 @@ export function useGsapEffect(
 ) {
   useEffect(() => {
     if (!ref.current) return;
-    
-    const ctx = gsap.context(() => {
-      animation(ref.current!, ctx);
+
+    const ctx = gsap.context((self) => {
+      animation(ref.current!, self);
     }, ref.current);
 
     return () => ctx.revert();
