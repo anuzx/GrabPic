@@ -1,29 +1,25 @@
 
 ## Getting Started
 
-```bash
-
-npm install -g pnpm
-```
 1. Clone or open the repository folder.
 2. Install the workspace dependencies:
    ```bash
-   pnpm install
+   bun install # or: npx pnpm install
    ```
 
 ### 1. Start Development Server
-running at `http://localhost:5174`:
+Running at `http://localhost:5174`:
 ```bash
-pnpm --filter @workspace/grabpic run dev
+bun run dev # or: npx pnpm --filter @workspace/grabpic run dev
 ```
 
 ### 2. Run TypeScript Typechecking
 ```bash
-pnpm run typecheck
+bun run typecheck # or: npx pnpm run typecheck
 ```
 
 ### 3. Build for Production
 ```bash
-PORT=5174 pnpm run build
+PORT=5174 bun run build # or: PORT=5174 npx pnpm run build
 ```
-The compiled output -----------> `artifacts/grabpic/dist/public`.
+The compiled output -----------> `grabpic/dist/public`.
