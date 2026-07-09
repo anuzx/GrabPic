@@ -1,37 +1,16 @@
 {
-  "name": "web",
-  "version": "0.1.0",
-  "type": "module",
-  "private": true,
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
   "scripts": {
-    "dev": "next dev --port 3000",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "npx pnpm -r --if-present run build",
+    "dev": "npx pnpm -r --filter \"./grabpic\" run dev",
+    "typecheck": "npx pnpm -r --filter \"./grabpic\" --if-present run typecheck"
   },
-  "dependencies": {
-    "@radix-ui/react-slot": "^1.3.0",
-    "autoprefixer": "^10.5.2",
-    "axios": "^1.18.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^1.22.0",
-    "next": "16.1.5",
-    "postcss": "^8.5.16",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "tailwind-merge": "^3.6.0",
-    "tailwindcss": "^4.3.2"
-  },
+  "private": true,
   "devDependencies": {
-    "@repo/eslint-config": "*",
-    "@repo/typescript-config": "*",
-    "@tailwindcss/postcss": "^4.3.2",
-    "@types/node": "^22.15.3",
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
-    "eslint": "^9.39.1",
-    "typescript": "5.9.2"
+    "prettier": "^3.8.4",
+    "typescript": "~5.9.3"
   }
 }
