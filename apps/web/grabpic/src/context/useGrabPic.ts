@@ -1,5 +1,7 @@
-import { useContext } from 'react';
-import { GrabPicContext } from './GrabPicContext';
+import { createContext, useContext } from 'react';
+import type { GrabPicContextType } from './GrabPicContext';
+
+export const GrabPicContext = createContext<GrabPicContextType | undefined>(undefined);
 
 export function useGrabPic() {
   const context = useContext(GrabPicContext);

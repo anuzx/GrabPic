@@ -1,20 +1,7 @@
-import { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { backendService, backendApi } from '@repo/api';
 
-export interface GrabPicContextType {
-  user: MockUser | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  events: MockEvent[];
-  pendingRedirect: string | null;
-  signIn: (provider: 'google' | 'github') => void;
-  signOut: () => void;
-  addEvent: (title: string, description?: string) => MockEvent;
-  joinEvent: (code: string) => MockEvent | null;
-  removeEvent: (id: string) => void;
-  clearPendingRedirect: () => void;
-}
-
-export interface MockUser {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -22,7 +9,7 @@ export interface MockUser {
   provider: 'google' | 'github';
 }
 
-export interface MockEvent {
+export interface GrabPicEvent {
   id: string;
   title: string;
   description: string | null;
@@ -32,145 +19,140 @@ export interface MockEvent {
   createdAt: string;
 }
 
-const MOCK_USER: MockUser = {
-  id: 'user-1',
-  name: 'Alex Kim',
-  email: 'alex@example.com',
-  avatar: 'AK',
-  provider: 'google',
-};
+// Aliases for backward compatibility with existing components
+export type MockUser = User;
+export type MockEvent = GrabPicEvent;
 
-const INITIAL_EVENTS: MockEvent[] = [
-  { id: 'evt-1', title: 'Company Offsite 2026', description: null, code: 'A3X9K2', photoCount: 142, role: 'OWNER', createdAt: new Date().toISOString() },
-  { id: 'evt-2', title: "Maya's Wedding", description: null, code: 'B7F2M1', photoCount: 89, role: 'MEMBER', createdAt: new Date().toISOString() },
-  { id: 'evt-3', title: 'SF Marathon 2026', description: null, code: 'C4K8P3', photoCount: 217, role: 'MEMBER', createdAt: new Date().toISOString() },
-  { id: 'evt-4', title: 'Graduation Party', description: null, code: 'D2R5N9', photoCount: 63, role: 'OWNER', createdAt: new Date().toISOString() },
-  { id: 'evt-5', title: 'Team Hackathon', description: null, code: 'E9V1Q7', photoCount: 34, role: 'OWNER', createdAt: new Date().toISOString() },
-];
-
-const EVENT_TITLES = [
-  'Joined Event', 'Birthday Bash', 'Team Celebration', 'Weekend Gathering',
-  'Photo Walk', 'Summer Meetup', 'Friends Reunion', 'Annual Gala',
-];
-
-export const GrabPicContext = createContext<GrabPicContextType | undefined>(undefined);
+export interface GrabPicContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  events: GrabPicEvent[];
+  pendingRedirect: string | null;
+  signIn: (provider: 'google' | 'github') => void;
+  signOut: () => Promise<void>;
+  addEvent: (title: string, description?: string) => Promise<GrabPicEvent>;
+  joinEvent: (code: string) => Promise<GrabPicEvent | null>;
+  removeEvent: (id: string) => Promise<void>;
+  leaveEvent: (id: string) => Promise<void>;
+  clearPendingRedirect: () => void;
+  refetchEvents: () => Promise<void>;
+}
+import { GrabPicContext } from './useGrabPic';
 
 export function GrabPicProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [events, setEvents] = useState<MockEvent[]>(INITIAL_EVENTS);
+  const [events, setEvents] = useState<GrabPicEvent[]>([]);
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = localStorage.getItem('grabpic_auth');
-    if (stored === 'true') {
-      const provider = (localStorage.getItem('grabpic_provider') as 'google' | 'github') || 'google';
-      const avatarUrl = provider === 'google' 
-        ? 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-        : 'https://avatars.githubusercontent.com/u/583231?v=4';
-      
-      setUser({
-        ...MOCK_USER,
-        provider,
-        avatar: avatarUrl
-      });
+  const fetchEvents = useCallback(async () => {
+    try {
+      const response = await backendService.listEvents();
+      const rawEvents = response.data?.data || [];
+      const eventsData = rawEvents.map((member: any) => ({
+        id: member.event.id,
+        title: member.event.title,
+        description: member.event.description,
+        code: member.event.code,
+        photoCount: member.event._count?.photos || 0,
+        role: member.role,
+        createdAt: member.event.createdAt || member.joinedAt || '',
+      }));
+      setEvents(eventsData);
+    } catch (err) {
+      console.error('Failed to fetch events', err);
     }
-    setIsLoading(false);
   }, []);
 
-  // Internal join logic that returns the event and updates state via a callback
-  const joinEventInternal = (code: string, currentEvents: MockEvent[]): { event: MockEvent | null; updatedEvents: MockEvent[] | null } => {
-    if (!code || code.length < 1) return { event: null, updatedEvents: null };
-
-    const normalizedCode = code.toUpperCase();
-
-    // Check if the user already has this event in their list
-    const existing = currentEvents.find(e => e.code.toUpperCase() === normalizedCode);
-    if (existing) {
-      return { event: existing, updatedEvents: null };
-    }
-
-    // For any valid 6-char code not in the user's list, create a new mock event
-    if (code.length === 6) {
-      const randomTitle = EVENT_TITLES[Math.floor(Math.random() * EVENT_TITLES.length)];
-      const newEvent: MockEvent = {
-        id: 'evt-' + Date.now(),
-        title: randomTitle,
-        description: null,
-        code: normalizedCode,
-        photoCount: Math.floor(Math.random() * 150) + 10,
-        role: 'MEMBER',
-        createdAt: new Date().toISOString(),
-      };
-      return { event: newEvent, updatedEvents: [newEvent, ...currentEvents] };
-    }
-
-    return { event: null, updatedEvents: null };
-  };
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsLoading(true);
+      try {
+        const response = await backendService.getMe();
+        if (response.data && response.data.data) {
+          setUser(response.data.data);
+          await fetchEvents();
+          
+          // Check for pending join from deep link
+          const pendingJoinRaw = sessionStorage.getItem('grabpic_pending_join');
+          if (pendingJoinRaw) {
+            try {
+              const { code } = JSON.parse(pendingJoinRaw) as { code: string };
+              const joinRes = await backendService.joinEvent({ code });
+              if (joinRes.data && joinRes.data.data && joinRes.data.data.eventId) {
+                 setPendingRedirect(`/events/${joinRes.data.data.eventId}`);
+                 await fetchEvents();
+              }
+            } catch (e) {
+              console.error('Pending join failed', e);
+            } finally {
+              sessionStorage.removeItem('grabpic_pending_join');
+            }
+          }
+        }
+      } catch (err) {
+        // User not authenticated
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    initAuth();
+  }, [fetchEvents]);
 
   const signIn = (provider: 'google' | 'github') => {
-    const avatarUrl = provider === 'google' 
-      ? 'https://lh3.googleusercontent.com/a/default-user=s96-c'
-      : 'https://avatars.githubusercontent.com/u/583231?v=4';
-
-    const u = { 
-      ...MOCK_USER, 
-      provider,
-      avatar: avatarUrl
-    };
-    setUser(u);
-    localStorage.setItem('grabpic_auth', 'true');
-    localStorage.setItem('grabpic_provider', provider);
-
-    // Check for pending join from deep link
-    const pendingJoinRaw = sessionStorage.getItem('grabpic_pending_join');
-    if (pendingJoinRaw) {
-      try {
-        const { code } = JSON.parse(pendingJoinRaw) as { code: string };
-        setEvents(prev => {
-          const { event, updatedEvents } = joinEventInternal(code, prev);
-          if (event) {
-            setPendingRedirect(`/events/${event.id}`);
-          }
-          sessionStorage.removeItem('grabpic_pending_join');
-          return updatedEvents || prev;
-        });
-      } catch {
-        sessionStorage.removeItem('grabpic_pending_join');
-      }
-    }
+    const backendUrl = backendApi.defaults.baseURL || 'http://localhost:5000';
+    window.location.href = `${backendUrl}/api/auth/${provider}`;
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    try {
+      await backendService.logout();
+    } catch (err) {
+      console.error('Logout failed', err);
+    }
     setUser(null);
-    localStorage.removeItem('grabpic_auth');
-    localStorage.removeItem('grabpic_provider');
+    setEvents([]);
   };
 
-  const addEvent = (title: string, description?: string): MockEvent => {
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const event: MockEvent = {
-      id: 'evt-' + Date.now(),
-      title,
-      description: description || null,
-      code,
-      photoCount: 0,
-      role: 'OWNER',
-      createdAt: new Date().toISOString(),
-    };
-    setEvents(prev => [event, ...prev]);
-    return event;
+  const addEvent = async (title: string, description?: string): Promise<GrabPicEvent> => {
+    const response = await backendService.createEvent({ title, description });
+    const newEvent = response.data?.data?.event || response.data?.data;
+    await fetchEvents();
+    return newEvent;
   };
 
-  const joinEvent = (code: string): MockEvent | null => {
-    const { event, updatedEvents } = joinEventInternal(code, events);
-    if (updatedEvents) {
-      setEvents(updatedEvents);
+  const joinEvent = async (code: string): Promise<GrabPicEvent | null> => {
+    try {
+      const response = await backendService.joinEvent({ code });
+      const member = response.data?.data;
+      await fetchEvents();
+      if (member && member.eventId) {
+        return {
+          id: member.eventId,
+          title: '',
+          description: '',
+          code: code,
+          photoCount: 0,
+          role: 'MEMBER',
+          createdAt: '',
+        };
+      }
+      return null;
+    } catch (err) {
+      console.error('Failed to join event', err);
+      throw err;
     }
-    return event;
   };
 
-  const removeEvent = (id: string) => {
+  const removeEvent = async (id: string) => {
+    await backendService.deleteEvent(id);
+    setEvents(prev => prev.filter(e => e.id !== id));
+  };
+
+  const leaveEvent = async (id: string) => {
+    await backendService.leaveEvent(id);
     setEvents(prev => prev.filter(e => e.id !== id));
   };
 
@@ -179,7 +161,21 @@ export function GrabPicProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GrabPicContext.Provider value={{ user, isAuthenticated: !!user, isLoading, events, pendingRedirect, signIn, signOut, addEvent, joinEvent, removeEvent, clearPendingRedirect }}>
+    <GrabPicContext.Provider value={{ 
+      user, 
+      isAuthenticated: !!user, 
+      isLoading, 
+      events, 
+      pendingRedirect, 
+      signIn, 
+      signOut, 
+      addEvent, 
+      joinEvent, 
+      removeEvent, 
+      leaveEvent,
+      clearPendingRedirect,
+      refetchEvents: fetchEvents
+    }}>
       {children}
     </GrabPicContext.Provider>
   );

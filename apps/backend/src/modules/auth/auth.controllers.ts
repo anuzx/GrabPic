@@ -96,10 +96,11 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
+  const isProd = config.nodeEnv === "production";
   res.cookie("token", token, {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });
@@ -197,10 +198,11 @@ const githubCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
+  const isProd = config.nodeEnv === "production";
   res.cookie("token", token, {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
   });

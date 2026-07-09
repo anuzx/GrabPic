@@ -8,6 +8,7 @@ import { FaceScanGate } from '../components/FaceScanGate';
 import { QRCodeModal } from '../components/QRCodeModal';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { useGrabPic } from '../context/useGrabPic';
+import { backendService } from '@repo/api';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useTheme } from 'next-themes';
@@ -33,13 +34,20 @@ export default function EventDetail() {
   const [, setLocation] = useLocation();
   const { theme, setTheme } = useTheme();
   
-  const { events, removeEvent } = useGrabPic();
+  const { events, removeEvent, leaveEvent } = useGrabPic();
   const event = events.find(e => e.id === eventId);
   
   const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [matchedPhotoIds, setMatchedPhotoIds] = useState<string[]>([]);
+  const [matchedPhotoIds, setMatchedPhotoIds] = useState<string[]>(() => {
+    const saved = localStorage.getItem(`grabpic_matched_ids_${eventId}`);
+    try {
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [showMatchBanner, setShowMatchBanner] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -56,34 +64,23 @@ export default function EventDetail() {
   const codeBtnRef = useRef<HTMLButtonElement>(null);
   const headerRef = useRef<HTMLElement>(null);
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    // Generate 20 mock photos with varying heights for masonry effect
-    if (event) {
-      const mockPhotos: Photo[] = Array.from({ length: 20 }, (_, i) => {
-        const height = [250, 320, 450, 300, 350, 400, 300, 450][i % 8];
-        return { 
-          id: 'p-'+i, 
-          url: `https://picsum.photos/seed/grabpic${i}/400/${height}`, 
-          eventId, 
-          publicId: 'mock-'+i, 
-          width: 400, 
-          height, 
-          createdAt: new Date().toISOString() 
-        };
-      });
-      setAllPhotos(mockPhotos);
-      
-      // Simulate loading state for skeleton demonstration
-      setIsLoading(true);
-      timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 400);
+  const fetchPhotos = React.useCallback(async () => {
+    if (!event) return;
+    setIsLoading(true);
+    try {
+      const response = await backendService.getEventPhotos(eventId);
+      const photosData = response.data?.photos || [];
+      setAllPhotos(photosData);
+    } catch (err) {
+      console.error('Failed to fetch event photos', err);
+    } finally {
+      setIsLoading(false);
     }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
   }, [eventId, event]);
+
+  useEffect(() => {
+    fetchPhotos();
+  }, [fetchPhotos]);
 
   // 3.1 — Event Header Entrance Timeline
   useEffect(() => {
@@ -233,22 +230,34 @@ export default function EventDetail() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleLeaveEvent = () => {
+  const handleLeaveEvent = async () => {
     haptic.error();
     setIsLeaving(true);
-    setTimeout(() => {
-      removeEvent(eventId);
+    try {
+      await leaveEvent(eventId);
+      localStorage.removeItem(`grabpic_face_scanned_${eventId}`);
+      localStorage.removeItem(`grabpic_matched_ids_${eventId}`);
       setLocation('/dashboard');
-    }, 500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLeaving(false);
+    }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     haptic.error();
     setIsDeleting(true);
-    setTimeout(() => {
-      removeEvent(eventId);
+    try {
+      await removeEvent(eventId);
+      localStorage.removeItem(`grabpic_face_scanned_${eventId}`);
+      localStorage.removeItem(`grabpic_matched_ids_${eventId}`);
       setLocation('/dashboard');
-    }, 500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleDownloadAll = () => {
@@ -277,6 +286,7 @@ export default function EventDetail() {
     setMatchedPhotoIds(matchedIds);
     setHasFaceScanned(true);
     localStorage.setItem(`grabpic_face_scanned_${eventId}`, 'true');
+    localStorage.setItem(`grabpic_matched_ids_${eventId}`, JSON.stringify(matchedIds));
     setShowMatchBanner(true);
     // Banner dismissal is now handled by the GSAP slide-out animation (3.2)
   };
@@ -504,7 +514,13 @@ export default function EventDetail() {
 
         {/* Photos / Face Scan Gate */}
         {event.role === 'OWNER' ? (
-          <PhotoGrid photos={allPhotos} matchedPhotoIds={matchedPhotoIds} eventId={eventId} isLoading={isLoading} />
+          <PhotoGrid 
+            photos={allPhotos} 
+            matchedPhotoIds={matchedPhotoIds} 
+            eventId={eventId} 
+            isLoading={isLoading} 
+            totalEventPhotosCount={allPhotos.length}
+          />
         ) : !hasFaceScanned ? (
           <FaceScanGate eventId={eventId} onScanComplete={handleFaceScanComplete} />
         ) : (
@@ -513,11 +529,20 @@ export default function EventDetail() {
             matchedPhotoIds={matchedPhotoIds} 
             eventId={eventId} 
             isLoading={isLoading} 
+            totalEventPhotosCount={allPhotos.length}
+            onRescan={() => setIsSearchOpen(true)}
           />
         )}
       </main>
 
-      <UploadPhotosModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} eventId={eventId} />
+      <UploadPhotosModal 
+        isOpen={isUploadOpen} 
+        onClose={() => {
+          setIsUploadOpen(false);
+          fetchPhotos();
+        }} 
+        eventId={eventId} 
+      />
       <FaceSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} onSearchComplete={handleSearchComplete} eventId={eventId} />
       <QRCodeModal isOpen={isQROpen} onClose={() => setIsQROpen(false)} event={{ title: event.title, code: event.code }} />
     </div>

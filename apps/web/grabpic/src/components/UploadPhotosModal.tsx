@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { CustomAlert } from './CustomAlert';
 
+import { backendService } from '@repo/api';
+
 type UploadStep = 'select' | 'progress' | 'done';
 
 const STATUS_PILLS = [
@@ -50,22 +52,65 @@ export function UploadPhotosModal({ isOpen, onClose, eventId }: { isOpen: boolea
     }
   };
 
-  const startUpload = () => {
+  const startUpload = async () => {
     haptic.medium();
     setStep('progress');
     setProgress(0);
     
-    // Fake upload progress
-    const interval = setInterval(() => {
-      setProgress(p => {
-        if (p >= 100) {
-          clearInterval(interval);
-          startProcessing();
-          return 100;
+    try {
+      // 1. Get signed Cloudinary credentials from backend
+      const signedUrlRes = await backendService.getSignedUrl(eventId);
+      const { signature, timestamp, apiKey, cloudName, folder } = signedUrlRes.data;
+
+      const uploadedPhotos: any[] = [];
+      let completedFiles = 0;
+
+      // 2. Upload files to Cloudinary
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', apiKey);
+        formData.append('timestamp', timestamp.toString());
+        formData.append('signature', signature);
+        formData.append('folder', folder);
+
+        const uploadRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `Cloudinary upload failed: ${uploadRes.statusText}`);
         }
-        return p + Math.random() * 15;
+
+        const cloudinaryData = await uploadRes.json();
+        uploadedPhotos.push({
+          publicId: cloudinaryData.public_id,
+          url: cloudinaryData.secure_url,
+          width: cloudinaryData.width,
+          height: cloudinaryData.height,
+        });
+
+        completedFiles++;
+        setProgress((completedFiles / files.length) * 100);
+      }
+
+      // 3. Confirm the uploads with the backend
+      await backendService.confirmPhotosUpload(eventId, {
+        photos: uploadedPhotos,
       });
-    }, 200);
+
+      startProcessing();
+    } catch (err) {
+      console.error('Upload failed', err);
+      haptic.warning();
+      setStep('select');
+      alert('Upload failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
   };
 
   const startProcessing = () => {

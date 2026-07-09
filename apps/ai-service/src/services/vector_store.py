@@ -68,12 +68,12 @@ async def insert_embeddings(
             await conn.execute(
                 """
                 INSERT INTO face_embeddings (photo_id, event_id, user_id, embedding)
-                VALUES ($1, $2, $3, $4::vector)
+                VALUES ($1, $2, $3, $4::text::vector)
                 """,
                 photo_id,
                 event_id,
                 user_id,
-                emb.tolist(),
+                str(emb.tolist()),
             )
 
 
@@ -87,14 +87,14 @@ async def search_similar_faces(
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT photo_id, 1 - (embedding <=> $1::vector) AS similarity
+            SELECT photo_id, 1 - (embedding <=> $1::text::vector) AS similarity
             FROM face_embeddings
             WHERE event_id = $2
-              AND 1 - (embedding <=> $1::vector) >= $3
-            ORDER BY embedding <=> $1::vector
+              AND 1 - (embedding <=> $1::text::vector) >= $3
+            ORDER BY embedding <=> $1::text::vector
             LIMIT $4
             """,
-            query_embedding.tolist(),
+            str(query_embedding.tolist()),
             event_id,
             threshold,
             limit,

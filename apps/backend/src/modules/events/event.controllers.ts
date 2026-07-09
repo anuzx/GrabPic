@@ -59,16 +59,22 @@ const joinEvent = asyncHandler(async (req, res) => {
     throw new ApiError(404, "no such event exists");
   }
 
-  const joined = await prisma.eventMember.findFirst({
+  const joined = await prisma.eventMember.findUnique({
     where: {
-      eventId: event.id,
-      userId: req.userId,
-      role: "MEMBER",
+      eventId_userId: {
+        eventId: event.id,
+        userId: req.userId,
+      },
     },
   });
 
   if (joined) {
-    throw new ApiError(400, "Already a member");
+    throw new ApiError(
+      400,
+      joined.role === "OWNER"
+        ? "You are the owner of this event"
+        : "Already a member"
+    );
   }
 
   const member = await prisma.eventMember.create({
@@ -94,6 +100,10 @@ const allEvents = asyncHandler(async (req, res) => {
           title: true,
           description: true,
           code: true,
+          createdAt: true,
+          _count: {
+            select: { photos: true },
+          },
         },
       },
     },
@@ -361,7 +371,11 @@ const searchFace = asyncHandler(async (req, res) => {
     );
 
     if (!aiResp.ok) {
-      throw new ApiError(502, "Face search failed after retries");
+      const errData = await aiResp.json().catch(() => ({}));
+      throw new ApiError(
+        aiResp.status === 400 ? 400 : 502,
+        errData.detail || "Face search failed after retries"
+      );
     }
 
     const data = (await aiResp.json()) as { photoIds: string[] };
