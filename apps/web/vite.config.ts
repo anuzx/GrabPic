@@ -27,7 +27,7 @@ export default defineConfig({
       ? [
           await import('@replit/vite-plugin-cartographer').then((m) =>
             m.cartographer({
-              root: path.resolve(__dirname, '..'),
+              root: path.resolve(__dirname),
             }),
           ),
           await import('@replit/vite-plugin-dev-banner').then((m) =>
@@ -39,11 +39,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@assets': path.resolve(
-        __dirname,
-        '..',
-        'attached_assets',
-      ),
     },
     dedupe: ['react', 'react-dom'],
   },

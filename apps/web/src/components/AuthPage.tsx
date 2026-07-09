@@ -3,15 +3,18 @@ import { useLocation } from 'wouter';
 import { useGrabPic } from '../context/useGrabPic';
 import { SiGithub } from 'react-icons/si';
 import gsap from 'gsap';
-
-
 import { haptic } from '../lib/haptic';
 
-export default function SignIn() {
+interface AuthPageProps {
+  mode: 'signup' | 'signin';
+}
+
+export default function AuthPage({ mode }: AuthPageProps) {
   const { user, isLoading, signIn, pendingRedirect, clearPendingRedirect } = useGrabPic();
   const [, setLocation] = useLocation();
 
-  // Refs for GSAP animations
+  const isSignup = mode === 'signup';
+
   const containerRef = useRef<HTMLDivElement>(null);
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const logoRef = useRef<HTMLHeadingElement>(null);
@@ -42,21 +45,16 @@ export default function SignIn() {
     signIn(provider);
   };
 
-  // ── Main entrance animations ──
   useEffect(() => {
     const ctx = gsap.context(() => {
       const heroLines = [heroLine1Ref.current, heroLine2Ref.current, heroLine3Ref.current];
 
-      // 1.1 — Hero Text Stagger Reveal
-
-      // Logo & logo icon fade in first
       gsap.fromTo(
         [logoRef.current, logoIconRef.current],
         { opacity: 0, y: 30 },
         { opacity: 1, y: 0, duration: 0.8, ease: 'power4.out' }
       );
 
-      // Hero lines stagger in after logo
       gsap.fromTo(
         heroLines,
         { opacity: 0, y: 50, clipPath: 'inset(100% 0% 0% 0%)' },
@@ -67,13 +65,10 @@ export default function SignIn() {
           ease: 'power4.out',
           duration: 1.2,
           stagger: 0.15,
-          delay: 0.5, // after logo finishes
+          delay: 0.5,
         }
       );
 
-      // Subtitle fades in 0.3s after the last hero line
-      // Last line starts at delay 0.5 + (2 * 0.15) = 0.8, finishes animating at ~2.0s
-      // So subtitle delay = 0.5 + (2 * 0.15) + 1.2 + 0.3 = 2.3 (approx: last line start + duration + 0.3)
       const subtitleDelay = 0.5 + (2 * 0.15) + 0.3;
       gsap.fromTo(
         subtitleRef.current,
@@ -81,25 +76,21 @@ export default function SignIn() {
         { opacity: 1, y: 0, duration: 0.8, ease: 'power3.out', delay: subtitleDelay }
       );
 
-
-
-      // 1.3 — Auth Card Slide-In
       gsap.fromTo(
         authCardRef.current,
         { opacity: 0, x: 60, scale: 0.95 },
         { opacity: 1, x: 0, scale: 1, ease: 'power3.out', duration: 0.8, delay: 0.4 }
       );
 
-      // Staggered Reveal Wipe animations for all right-side components
-      gsap.fromTo(".wipe-reveal", 
+      gsap.fromTo(".wipe-reveal",
         { clipPath: "inset(0 100% 0 0)", opacity: 0 },
-        { 
-          clipPath: "inset(0 0% 0 0)", 
-          opacity: 1, 
-          duration: 1.2, 
-          ease: "power3.inOut", 
-          stagger: 0.08, 
-          delay: 0.2 
+        {
+          clipPath: "inset(0 0% 0 0)",
+          opacity: 1,
+          duration: 1.2,
+          ease: "power3.inOut",
+          stagger: 0.08,
+          delay: 0.2
         }
       );
     }, containerRef);
@@ -107,9 +98,6 @@ export default function SignIn() {
     return () => ctx.revert();
   }, []);
 
-
-
-  // ── 1.4 — Button Hover Micro-Interaction ──
   const handleButtonEnter = useCallback((btn: HTMLButtonElement | null) => {
     if (!btn) return;
     gsap.to(btn, { scale: 1.02, duration: 0.25, ease: 'power2.out' });
@@ -126,8 +114,6 @@ export default function SignIn() {
       .to(btn, { scale: 0.97, duration: 0.1, ease: 'power2.in' })
       .to(btn, { scale: 1, duration: 0.2, ease: 'power2.out' });
   }, []);
-
-
 
   return (
     <main ref={containerRef} className="min-h-[100dvh] w-full flex flex-col md:flex-row bg-background">
@@ -165,8 +151,6 @@ export default function SignIn() {
             Facial-recognition powered photo delivery for events. Drop hundreds of photos, find yours instantly.
           </p>
         </div>
-
-
       </div>
 
       {/* Right Auth Card */}
@@ -179,10 +163,10 @@ export default function SignIn() {
             </div>
             <div className="flex flex-col gap-1 w-full">
               <h1 className="wipe-reveal signin-h1 text-4xl md:text-5xl font-sans font-bold tracking-tight text-foreground leading-[1.1] min-h-[80px] md:min-h-[110px] w-full" style={{ opacity: 0 }}>
-                Make memories with us
+                {isSignup ? 'Make memories with us' : 'Welcome back'}
               </h1>
               <h2 className="wipe-reveal signin-h2 text-3xl md:text-4xl font-sans font-medium text-muted-foreground tracking-tight min-h-[36px] md:min-h-[40px] w-full" style={{ opacity: 0 }}>
-                Join us today
+                {isSignup ? 'Join us today' : 'Sign in to your account'}
               </h2>
             </div>
           </div>
@@ -239,20 +223,20 @@ export default function SignIn() {
             </p>
           </div>
 
-          {/* Already have an account */}
+          {/* Bottom CTA */}
           <div className="flex flex-col gap-4 w-full mt-2 pt-8 border-t border-border">
             <p className="wipe-reveal text-foreground font-medium text-base md:text-lg" style={{ opacity: 0 }}>
-              Already have an account?
+              {isSignup ? 'Already have an account?' : "Don't have an account?"}
             </p>
             <button
               ref={loginBtnRef}
-              onClick={() => handleSignIn('github')}
+              onClick={() => setLocation(isSignup ? '/signin' : '/signup')}
               onMouseEnter={() => handleButtonEnter(loginBtnRef.current)}
               onMouseLeave={() => handleButtonLeave(loginBtnRef.current)}
               className="wipe-reveal w-full h-14 bg-transparent border border-foreground hover:bg-muted text-foreground rounded-full font-medium flex items-center justify-center transition-colors text-base md:text-lg"
               style={{ opacity: 0 }}
             >
-              Log in
+              {isSignup ? 'Log in' : 'Sign up'}
             </button>
           </div>
         </div>

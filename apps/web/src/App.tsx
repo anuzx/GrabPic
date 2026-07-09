@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, lazy, Suspense } from 'react';
 const NotFound = lazy(() => import('@/pages/not-found'));
 const SignIn = lazy(() => import('@/pages/signin'));
+const SignUp = lazy(() => import('@/pages/signup'));
 const Dashboard = lazy(() => import('@/pages/dashboard'));
 const EventDetail = lazy(() => import('@/pages/event-detail'));
 const JoinRedirect = lazy(() => import('./pages/join-redirect'));
@@ -13,15 +14,15 @@ import { ThemeProvider } from 'next-themes';
 // Protected Route wrapper
 function ProtectedRoute({ component: Component, ...rest }: any) {
   const { user, isLoading } = useGrabPic();
-  
+
   if (isLoading) {
     return <div className="min-h-[100dvh] w-full bg-background" />;
   }
-  
+
   if (!user) {
     return <Redirect to="/signin" />;
   }
-  
+
   return <Component {...rest} />;
 }
 
@@ -37,10 +38,10 @@ function PageTransition({ children }: { children: React.ReactNode }) {
     // Trigger enter animation on route location changes
     gsap.fromTo(el,
       { opacity: 0, y: 15 },
-      { 
-        opacity: 1, 
-        y: 0, 
-        duration: 0.4, 
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.4,
         ease: 'power2.out',
         clearProps: 'all' // ensures we don't interfere with fixed layout or header stickiness
       }
@@ -59,7 +60,8 @@ function Router() {
     <PageTransition>
       <Suspense fallback={<div className="min-h-[100dvh] w-full bg-background" />}>
         <Switch>
-          <Route path="/" component={() => <Redirect to="/dashboard" />} />
+          <Route path="/" component={() => <Redirect to="/signup" />} />
+          <Route path="/signup" component={SignUp} />
           <Route path="/signin" component={SignIn} />
           <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
           <Route path="/events/:id" component={() => <ProtectedRoute component={EventDetail} />} />

@@ -4,7 +4,7 @@ backend -> `http://localhost:5000`
 
 <br/>
 
-frontend -> `http://localhost:3000`
+frontend -> `http://localhost:5173`
 
 <br/>
 
