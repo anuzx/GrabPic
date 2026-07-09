@@ -22,7 +22,7 @@ export function JoinEventModal({ isOpen, onClose }: { isOpen: boolean, onClose: 
     setTimeout(() => setShake(false), 300);
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (code.length !== 6) {
       triggerError('Code must be 6 characters');
@@ -32,10 +32,8 @@ export function JoinEventModal({ isOpen, onClose }: { isOpen: boolean, onClose: 
     setError('');
     setIsJoining(true);
     
-    setTimeout(() => {
-      const event = joinEvent(code);
-      setIsJoining(false);
-      
+    try {
+      const event = await joinEvent(code);
       if (event) {
         haptic.success();
         onClose();
@@ -44,7 +42,12 @@ export function JoinEventModal({ isOpen, onClose }: { isOpen: boolean, onClose: 
       } else {
         triggerError('Event not found. Check the code and try again.');
       }
-    }, 600);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Failed to join event. Check the code and try again.';
+      triggerError(msg);
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   const handleScanResult = (scannedCode: string) => {

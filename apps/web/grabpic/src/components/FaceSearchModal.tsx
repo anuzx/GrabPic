@@ -4,6 +4,8 @@ import { X, Camera, Loader2, CheckCircle2 } from 'lucide-react';
 import { haptic } from '../lib/haptic';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { backendService } from '@repo/api';
+
 type SearchStep = 'select' | 'searching' | 'done';
 
 interface FaceSearchModalProps {
@@ -39,21 +41,33 @@ export function FaceSearchModal({ isOpen, onClose, onSearchComplete, eventId }: 
     }
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!file) return;
     haptic.medium();
     setStep('searching');
     
-    // Fake search delay
-    setTimeout(() => {
+    try {
+      const formData = new FormData();
+      formData.append('selfie', file);
+
+      const response = await backendService.searchFace(eventId, formData);
+      const matchedPhotos = response.data?.data?.photos || [];
+      const matchedIds = matchedPhotos.map((p: any) => p.id);
+
       haptic.success();
       setStep('done');
+      
       setTimeout(() => {
-        // Return some random mock photo indices
-        onSearchComplete(['p-0', 'p-4', 'p-7', 'p-12', 'p-18']);
+        onSearchComplete(matchedIds);
         onClose();
       }, 1500);
-    }, 2000);
+    } catch (err: any) {
+      console.error('Face search failed', err);
+      haptic.warning();
+      setStep('select');
+      const msg = err.response?.data?.message || 'Face search failed. Please try a clearer picture.';
+      alert(msg);
+    }
   };
 
   return (

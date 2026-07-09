@@ -30,20 +30,24 @@ export function CreateEventModal({ isOpen, onClose }: { isOpen: boolean, onClose
     }, 300);
   };
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     
     haptic.light();
     setIsCreating(true);
     
-    setTimeout(() => {
-      const event = addEvent(title, description);
+    try {
+      const event = await addEvent(title, description);
       setCreatedEvent(event);
       setStep('success');
       haptic.success();
+    } catch (err) {
+      console.error(err);
+      haptic.warning();
+    } finally {
       setIsCreating(false);
-    }, 500);
+    }
   };
 
   const handleGoToEvent = () => {

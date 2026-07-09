@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, X, ChevronLeft, ChevronRight, Check, Camera } from 'lucide-react';
+import { Download, X, ChevronLeft, ChevronRight, Check, Camera, Search } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { haptic } from '../lib/haptic';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from '../components/ui/empty';
@@ -26,6 +26,8 @@ interface PhotoGridProps {
   matchedPhotoIds: string[];
   eventId: string;
   isLoading?: boolean;
+  totalEventPhotosCount?: number;
+  onRescan?: () => void;
 }
 
 function PhotoGridSkeleton() {
@@ -53,7 +55,7 @@ function PhotoGridSkeleton() {
   );
 }
 
-export function PhotoGrid({ photos, matchedPhotoIds, eventId, isLoading = false }: PhotoGridProps) {
+export function PhotoGrid({ photos, matchedPhotoIds, eventId, isLoading = false, totalEventPhotosCount = 0, onRescan }: PhotoGridProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const { toast } = useToast();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -204,17 +206,34 @@ export function PhotoGrid({ photos, matchedPhotoIds, eventId, isLoading = false 
   }, [photoItems.length, matchedPhotoIds.length]);
 
   if (photoItems.length === 0 && !isLoading) {
+    const hasPhotosInEvent = totalEventPhotosCount > 0;
     return (
       <Empty className="relative overflow-hidden bg-card/40 border-2 border-dashed border-border rounded-2xl p-12 md:p-16 flex flex-col items-center justify-center min-h-[300px] bg-dot-grid">
         <div className="absolute w-40 h-40 bg-[#ff5722]/5 blur-[50px] rounded-full pointer-events-none -translate-x-1/2 left-1/2 top-6" />
         <EmptyMedia variant="icon" className="animate-empty-float bg-primary/10 border border-primary/25 rounded-2xl w-14 h-14 flex items-center justify-center text-primary shadow-lg shadow-primary/10 mb-2">
           <Camera className="w-7 h-7" />
         </EmptyMedia>
-        <EmptyHeader className="z-10 flex flex-col gap-1.5 max-w-sm">
-          <EmptyTitle className="text-xl font-bold tracking-tight text-foreground">No Photos Yet</EmptyTitle>
+        <EmptyHeader className="z-10 flex flex-col gap-1.5 max-w-sm text-center items-center">
+          <EmptyTitle className="text-xl font-bold tracking-tight text-foreground">
+            {hasPhotosInEvent ? 'No Matches Found' : 'No Photos Yet'}
+          </EmptyTitle>
           <EmptyDescription className="text-sm text-muted-foreground leading-normal">
-            This album is currently empty. Photos added to this event will be automatically processed using facial indexing.
+            {hasPhotosInEvent 
+              ? "We scanned all photos in this album but couldn't find your face. Try re-scanning with a clearer selfie, or check back later as more photos get uploaded!"
+              : "This album is currently empty. Photos added to this event will be automatically processed using facial indexing."}
           </EmptyDescription>
+          {hasPhotosInEvent && onRescan && (
+            <button
+              onClick={() => {
+                haptic.light();
+                onRescan();
+              }}
+              className="mt-4 bg-primary text-primary-foreground h-10 px-6 rounded-[8px] font-medium hover:opacity-90 transition-opacity flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              Scan Again
+            </button>
+          )}
         </EmptyHeader>
       </Empty>
     );

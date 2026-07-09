@@ -12,6 +12,7 @@ export default function JoinRedirect() {
   const { user, joinEvent, isLoading } = useGrabPic();
   const [, navigate] = useLocation();
   const [joinState, setJoinState] = useState<JoinState>('joining');
+  const [errorMessage, setErrorMessage] = useState('');
   const hasAttempted = useRef(false);
 
   useEffect(() => {
@@ -31,15 +32,21 @@ export default function JoinRedirect() {
       setJoinState('joining');
 
       // Small delay to show the joining state
-      timer = setTimeout(() => {
-        const event = joinEvent(eventCode);
-        if (event) {
-          setJoinState('success');
-          // Navigate after brief success state
-          setTimeout(() => {
-            navigate(`/events/${event.id}`);
-          }, 400);
-        } else {
+      timer = setTimeout(async () => {
+        try {
+          const event = await joinEvent(eventCode);
+          if (event) {
+            setJoinState('success');
+            // Navigate after brief success state
+            setTimeout(() => {
+              navigate(`/events/${event.id}`);
+            }, 400);
+          } else {
+            setErrorMessage('Event not found. Check the code and try again.');
+            setJoinState('error');
+          }
+        } catch (err: any) {
+          setErrorMessage(err.response?.data?.message || 'Failed to join event. Check the code and try again.');
           setJoinState('error');
         }
       }, 800);
@@ -101,10 +108,10 @@ export default function JoinRedirect() {
               <AlertCircle className="w-8 h-8 text-destructive" />
             </div>
             <h2 className="text-xl font-sans font-semibold tracking-tight text-foreground mb-2">
-              Event not found
+              Failed to Join
             </h2>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              The event code '<span className="font-mono font-medium">{eventCode}</span>' is invalid or has expired.
+              {errorMessage || `The event code '${eventCode}' is invalid or has expired.`}
             </p>
             <button
               onClick={() => navigate('/dashboard')}

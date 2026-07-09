@@ -1,5 +1,0 @@
-{"level":"info","message":"Server running on port 5000","service":"grab-pic","timestamp":"2026-07-03 18:02:30"}{"ip":"::1","level":"info","message":"GET /api/events/5a3147b8-2754-4736-994c-821a735e5dbf","service":"grab-pic","timestamp":"2026-07-03 18:14:33","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"}
-{"ip":"::1","level":"info","message":"GET /api/user/me","service":"grab-pic","timestamp":"2026-07-03 18:14:33","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"}
-{"ip":"::1","level":"info","message":"GET /api/events","service":"grab-pic","timestamp":"2026-07-03 18:14:33","userAgent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"}
-{"level":"info","message":"SIGINT received. Shutting down gracefully...","service":"grab-pic","timestamp":"2026-07-03 18:28:15"}
-{"level":"info","message":"SIGINT received. Shutting down gracefully...","service":"grab-pic","timestamp":"2026-07-03 18:28:15"}

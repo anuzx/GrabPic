@@ -32,10 +32,10 @@ const globalErrorHandler = (
     return res.status(500).json(
       new ApiResponse(
         500,
+        err.message || "Internal Server Error",
         config.nodeEnv === "development"
-          ? err.message
-          : "Internal Server Error",
-        null,
+          ? { stack: err.stack }
+          : null,
       ),
     );
   }
