@@ -27,6 +27,6 @@ export const backendService = {
         'Content-Type': 'multipart/form-data',
       },
     }),
-  downloadPhotos: (eventId: string) => 
-    backendApi.post(`/api/events/${eventId}/download`),
+  downloadPhotos: (eventId: string, photoIds: string[]) => 
+    backendApi.post(`/api/events/${eventId}/download`, { photoIds }, { responseType: 'blob' }),
 };
