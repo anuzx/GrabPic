@@ -9,7 +9,7 @@ RUN uv sync --frozen --no-cache
 
 COPY src/ src/
 
-RUN uv run python -c "from insightface.app import FaceAnalysis; FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider']).prepare(ctx_id=-1)"
+RUN uv run python -c "from deepface import DeepFace; import numpy as np; DeepFace.represent(np.zeros((224, 224, 3), dtype=np.uint8), model_name='Facenet512', detector_backend='retinaface', enforce_detection=False)"
 
 EXPOSE 8000
 

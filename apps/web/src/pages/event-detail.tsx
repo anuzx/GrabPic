@@ -57,6 +57,7 @@ export default function EventDetail() {
     localStorage.getItem(`grabpic_face_scanned_${eventId}`) === 'true'
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Refs for GSAP animations
   const mainContentRef = useRef<HTMLElement>(null);
@@ -260,22 +261,30 @@ export default function EventDetail() {
     }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     haptic.success();
     const matchedPhotos = allPhotos.filter(p => matchedPhotoIds.includes(p.id));
     if (matchedPhotos.length === 0) return;
     
-    matchedPhotos.forEach((photo, idx) => {
-      setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = photo.url;
-        link.download = `photo-${photo.id}.jpg`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, idx * 400);
-    });
+    setIsDownloading(true);
+    try {
+      const response = await backendService.downloadPhotos(eventId, matchedPhotoIds);
+      const blob = new Blob([response.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `event-${eventId}-photos.zip`;
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download matched photos ZIP', err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handleSearchComplete = (matches: string[]) => {
@@ -441,16 +450,27 @@ export default function EventDetail() {
                   <Upload className="w-4 h-4" />
                   Upload Photos
                 </button>
+                {hasFaceScanned && allPhotos.filter(p => matchedPhotoIds.includes(p.id)).length > 0 && (
+                  <button 
+                    onClick={handleDownloadAll}
+                    disabled={isDownloading}
+                    className="bg-primary text-primary-foreground h-10 px-4 rounded-[8px] font-medium transition-opacity hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    {isDownloading ? 'Downloading...' : 'Download My Photos'}
+                  </button>
+                )}
               </>
             ) : (
               <>
                 {hasFaceScanned && allPhotos.filter(p => matchedPhotoIds.includes(p.id)).length > 0 && (
                   <button 
                     onClick={handleDownloadAll}
-                    className="bg-primary text-primary-foreground h-10 px-4 rounded-[8px] font-medium transition-opacity hover:opacity-90 flex items-center gap-2"
+                    disabled={isDownloading}
+                    className="bg-primary text-primary-foreground h-10 px-4 rounded-[8px] font-medium transition-opacity hover:opacity-90 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Download className="w-4 h-4" />
-                    Download My Photos
+                    {isDownloading ? 'Downloading...' : 'Download My Photos'}
                   </button>
                 )}
 
