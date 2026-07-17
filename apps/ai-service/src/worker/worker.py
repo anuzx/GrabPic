@@ -57,7 +57,7 @@ async def start_worker():
                 continue
 
             for _stream_name, entries in results:
-                for entry_id_bytes, data in entries:
+                for entry_id_bytes, data in entries:  # pyright: ignore[reportGeneralTypeIssues]
                     eid = (
                         entry_id_bytes.decode()
                         if isinstance(entry_id_bytes, bytes)
@@ -151,7 +151,7 @@ async def claim_pending_messages(r: aioredis.Redis):
         if not pending_count:
             return
 
-        details = await r.xpending(STREAM_KEY, GROUP_NAME, "-", "+", 100)
+        details = await r.xpending(STREAM_KEY, GROUP_NAME, "-", "+", 100)  # pyright: ignore[reportCallIssue]
         if not details:
             return
 
@@ -166,7 +166,7 @@ async def claim_pending_messages(r: aioredis.Redis):
 
         if entry_ids:
             claimed = await r.xclaim(
-                STREAM_KEY, GROUP_NAME, CONSUMER_NAME, 60000, entry_ids,
+                STREAM_KEY, GROUP_NAME, CONSUMER_NAME, 60000, entry_ids,  # pyright: ignore[reportArgumentType]
             )
             logger.info("Claimed %d pending messages for reprocessing", len(claimed))
     except Exception as e:
@@ -187,7 +187,7 @@ async def reprocess_dead_letters(r: aioredis.Redis):
             for entry_id, data in entries or []:
                 if entry_id is None or not data:
                     continue
-                await r.xadd(STREAM_KEY, data)
+                await r.xadd(STREAM_KEY, data)  # pyright: ignore[reportArgumentType]
                 await r.xdel(DEAD_STREAM_KEY, entry_id)
                 eid_str = (
                     entry_id.decode()

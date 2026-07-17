@@ -26,6 +26,7 @@ export const backendService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 25000,
     }),
   downloadPhotos: (eventId: string, photoIds: string[]) => 
     backendApi.post(`/api/events/${eventId}/download`, { photoIds }, { responseType: 'blob' }),

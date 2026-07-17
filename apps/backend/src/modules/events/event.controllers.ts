@@ -371,7 +371,8 @@ const searchFace = asyncHandler(async (req, res) => {
     );
 
     if (!aiResp.ok) {
-      const errData = await aiResp.json().catch(() => ({}));
+      const errData = (await aiResp.json().catch(() => ({}))) as Record<string, string>;
+
       throw new ApiError(
         aiResp.status === 400 ? 400 : 502,
         errData.detail || "Face search failed after retries"
@@ -390,6 +391,11 @@ const searchFace = asyncHandler(async (req, res) => {
       .filter(Boolean) as typeof photos;
 
     res.json(new ApiResponse(200, "Photos found", { photos: ordered }));
+  } catch (err: any) {
+    if (err.name === "TimeoutError" || err.name === "AbortError" || err.code === "ABORT_ERR") {
+      throw new ApiError(504, "Face search timed out. Please try again.");
+    }
+    throw err;
   } finally {
     if (file.path) {
       unlink(file.path).catch(() => {});

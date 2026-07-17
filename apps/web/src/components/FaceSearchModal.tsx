@@ -4,7 +4,7 @@ import { X, Camera, Loader2, CheckCircle2 } from 'lucide-react';
 import { haptic } from '../lib/haptic';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { backendService } from '@repo/api';
+import { backendService } from '@/lib/api';
 
 type SearchStep = 'select' | 'searching' | 'done';
 
@@ -65,7 +65,12 @@ export function FaceSearchModal({ isOpen, onClose, onSearchComplete, eventId }: 
       console.error('Face search failed', err);
       haptic.warning();
       setStep('select');
-      const msg = err.response?.data?.message || 'Face search failed. Please try a clearer picture.';
+      const isTimeout = err.code === 'ECONNABORTED' 
+        || err.message?.includes('timeout')
+        || err.response?.status === 504;
+      const msg = isTimeout
+        ? 'Search is taking longer than expected. Please try again with a clearer photo.'
+        : err.response?.data?.message || 'Face search failed. Please try a clearer picture.';
       alert(msg);
     }
   };

@@ -13,6 +13,10 @@ MODEL_NAME = "Facenet512"
 DETECTOR_BACKEND = "retinaface"
 
 
+MODEL_INIT_TIMEOUT = 15
+INFERENCE_TIMEOUT = 8
+
+
 async def get_model() -> Any:
     global _model
     if _model is not None:
@@ -21,10 +25,15 @@ async def get_model() -> Any:
         if _model is not None:
             return _model
         loop = asyncio.get_running_loop()
-        # Build the model using run_in_executor to avoid blocking the event loop
-        _model = await loop.run_in_executor(
-            None, lambda: DeepFace.build_model(MODEL_NAME)
-        )
+        try:
+            _model = await asyncio.wait_for(
+                loop.run_in_executor(
+                    None, lambda: DeepFace.build_model(MODEL_NAME)
+                ),
+                timeout=MODEL_INIT_TIMEOUT,
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(f"Model initialization timed out after {MODEL_INIT_TIMEOUT}s")
     return _model
 
 
@@ -43,22 +52,23 @@ async def extract_embeddings(image: np.ndarray) -> list[np.ndarray]:
     model = await get_model()
     loop = asyncio.get_running_loop()
     try:
-        # Run represent in an executor to avoid blocking the main event loop
-        objs = await loop.run_in_executor(
-            None,
-            lambda: DeepFace.represent(
-                img_path=image,
-                model_name=MODEL_NAME,
-                enforce_detection=True,
-                detector_backend=DETECTOR_BACKEND,
-                l2_normalize=True,
+        objs = await asyncio.wait_for(
+            loop.run_in_executor(
+                None,
+                lambda: DeepFace.represent(
+                    img_path=image,
+                    model_name=MODEL_NAME,
+                    enforce_detection=True,
+                    detector_backend=DETECTOR_BACKEND,
+                    l2_normalize=True,
+                ),
             ),
+            timeout=INFERENCE_TIMEOUT,
         )
-        # DeepFace returns a list of dictionaries, extract the L2 normalized embedding list and convert to np.ndarray
-        return [np.array(obj["embedding"], dtype=np.float32) for obj in objs]
+        return [np.array(obj["embedding"], dtype=np.float32) for obj in objs]  # pyright: ignore[reportCallIssue, reportArgumentType]
+    except asyncio.TimeoutError:
+        raise TimeoutError(f"Face embedding extraction timed out after {INFERENCE_TIMEOUT}s")
     except ValueError as e:
-        # If no face is detected, DeepFace raises a ValueError.
-        # We catch this and return an empty list of embeddings, matching original behavior.
         if "Face could not be detected" in str(e):
             return []
         raise e

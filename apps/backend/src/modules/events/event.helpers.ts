@@ -12,12 +12,22 @@ async function fetchWithRetry(
   url: string,
   options: RequestInit,
   maxRetries = 3,
+  timeoutPerAttemptMs = 8000,
+  totalTimeoutMs = 20000,
 ): Promise<Response> {
   let lastError: Error | null = null;
+  const startTime = Date.now();
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    if (attempt > 1 && Date.now() - startTime >= totalTimeoutMs) {
+      break;
+    }
+
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(timeoutPerAttemptMs),
+      });
 
       if (response.ok) return response;
 

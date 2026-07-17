@@ -8,7 +8,7 @@ import { FaceScanGate } from '../components/FaceScanGate';
 import { QRCodeModal } from '../components/QRCodeModal';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { useGrabPic } from '../context/useGrabPic';
-import { backendService } from '@repo/api';
+import { backendService } from '@/lib/api';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useTheme } from 'next-themes';

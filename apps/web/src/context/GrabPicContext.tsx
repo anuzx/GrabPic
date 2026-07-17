@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { backendService, backendApi } from '@repo/api';
+import { backendService, backendApi } from '@/lib/api';
 
 export interface User {
   id: string;

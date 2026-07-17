@@ -81,6 +81,21 @@ async def process_photos(req: ProcessPhotosRequest):
     return ProcessPhotosResponse(processed=processed, total_faces=total_faces)
 
 
+SEARCH_FACE_TIMEOUT = 10
+
+
+async def _do_face_search(eventId: str, img: np.ndarray) -> SearchFaceResponse:
+    embeddings = await extract_embeddings(img)
+    if not embeddings:
+        raise HTTPException(status_code=400, detail="No face detected in the uploaded photo")
+
+    query_emb = embeddings[0]
+    results = await search_similar_faces(eventId, query_emb)
+
+    photo_ids = [r.photo_id for r in results]
+    return SearchFaceResponse(photoIds=photo_ids)
+
+
 @app.post("/search-face", response_model=SearchFaceResponse)
 async def search_face(request: Request, eventId: str = Query(...)):
     body = await request.body()
@@ -92,12 +107,8 @@ async def search_face(request: Request, eventId: str = Query(...)):
     if img is None:
         raise HTTPException(status_code=400, detail="Failed to decode image")
 
-    embeddings = await extract_embeddings(img)
-    if not embeddings:
-        raise HTTPException(status_code=400, detail="No face detected in the uploaded photo")
-
-    query_emb = embeddings[0]
-    results = await search_similar_faces(eventId, query_emb)
-
-    photo_ids = [r.photo_id for r in results]
-    return SearchFaceResponse(photoIds=photo_ids)
+    try:
+        return await asyncio.wait_for(_do_face_search(eventId, img), timeout=SEARCH_FACE_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.warning("Face search timed out for event %s", eventId)
+        raise HTTPException(status_code=504, detail="Face search timed out")

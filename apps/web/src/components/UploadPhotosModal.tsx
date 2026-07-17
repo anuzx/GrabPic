@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { CustomAlert } from './CustomAlert';
 
-import { backendService } from '@repo/api';
+import { backendService } from '@/lib/api';
 
 type UploadStep = 'select' | 'progress' | 'done';
 
