@@ -103,8 +103,9 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     sameSite: isProd ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
+    partitioned: isProd,
   });
-  res.redirect(301, `${config.frontendUrl}/dashboard`);
+  res.redirect(302, `${config.frontendUrl}/dashboard`);
 });
 
 const githubAuth = asyncHandler((_req: Request, res: Response) => {
@@ -205,8 +206,9 @@ const githubCallback = asyncHandler(async (req: Request, res: Response) => {
     sameSite: isProd ? "none" : "lax",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/",
+    partitioned: isProd,
   });
-  res.redirect(301, `${config.frontendUrl}/dashboard`);
+  res.redirect(302, `${config.frontendUrl}/dashboard`);
 });
 
 export { googleAuth, googleCallback, githubAuth, githubCallback };

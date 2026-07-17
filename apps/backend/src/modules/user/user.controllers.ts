@@ -44,6 +44,7 @@ const logout = asyncHandler(async (req: Request, res: Response) => {
     secure: true,
     sameSite: "none",
     path: "/",
+    partitioned: true,
   });
   res.json(new ApiResponse(200, "Logged out successfully", null));
 });
