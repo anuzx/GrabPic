@@ -13,4 +13,4 @@ RUN cd packages/db && bunx prisma generate
 
 WORKDIR /app/apps/backend
 EXPOSE 5000
-CMD ["bun", "run", "start"]
+CMD ["sh", "-c", "cd /app/packages/db && bunx prisma migrate deploy && cd /app/apps/backend && bun run start"]
