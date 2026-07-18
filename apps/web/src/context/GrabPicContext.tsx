@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { backendService, backendApi } from '@/lib/api';
+import { setToken, clearToken } from '@/lib/api/token';
 
 export interface User {
   id: string;
@@ -66,6 +67,13 @@ export function GrabPicProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      setToken(urlToken);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     const initAuth = async () => {
       setIsLoading(true);
       try {
@@ -112,6 +120,7 @@ export function GrabPicProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error('Logout failed', err);
     }
+    clearToken();
     setUser(null);
     setEvents([]);
   };

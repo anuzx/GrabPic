@@ -19,10 +19,9 @@ const getMe = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const logout = asyncHandler(async (req: Request, res: Response) => {
-  const token =
-    req.headers.authorization?.startsWith("Bearer ")
-      ? req.headers.authorization.slice(7)
-      : req.cookies?.token;
+  const token = req.headers.authorization?.startsWith("Bearer ")
+    ? req.headers.authorization.slice(7)
+    : null;
 
   if (token) {
     try {
@@ -39,13 +38,6 @@ const logout = asyncHandler(async (req: Request, res: Response) => {
     }
   }
 
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-    partitioned: true,
-  });
   res.json(new ApiResponse(200, "Logged out successfully", null));
 });
 

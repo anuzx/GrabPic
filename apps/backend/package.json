@@ -10,7 +10,6 @@
   "devDependencies": {
     "@types/archiver": "^8.0.0",
     "@types/bun": "latest",
-    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/http-errors": "^2.0.5",
@@ -21,7 +20,6 @@
     "archiver": "^8.0.0",
     "axios": "^1.18.1",
     "cloudinary": "^2.10.0",
-    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "db": "*",
     "express": "^5.2.1",

@@ -96,16 +96,7 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
-  const isProd = config.nodeEnv === "production";
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-    partitioned: isProd,
-  });
-  res.redirect(302, `${config.frontendUrl}/dashboard`);
+  res.redirect(302, `${config.frontendUrl}/dashboard?token=${encodeURIComponent(token)}`);
 });
 
 const githubAuth = asyncHandler((_req: Request, res: Response) => {
@@ -199,16 +190,7 @@ const githubCallback = asyncHandler(async (req: Request, res: Response) => {
     expiresIn: "7d",
   });
 
-  const isProd = config.nodeEnv === "production";
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
-    partitioned: isProd,
-  });
-  res.redirect(302, `${config.frontendUrl}/dashboard`);
+  res.redirect(302, `${config.frontendUrl}/dashboard?token=${encodeURIComponent(token)}`);
 });
 
 export { googleAuth, googleCallback, githubAuth, githubCallback };

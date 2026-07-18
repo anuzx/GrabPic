@@ -20,10 +20,10 @@ export const authenticate = async (
 ) => {
   try {
     const authHeader = req.headers.authorization;
-    const token =
-      authHeader?.startsWith("Bearer ")
-        ? authHeader.slice(7)
-        : req.cookies?.token;
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new ApiError(401, "Not authenticated");
+    }
+    const token = authHeader.slice(7);
     if (!token) {
       throw new ApiError(401, "Not authenticated");
     }

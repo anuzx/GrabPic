@@ -2,8 +2,6 @@ import { backendApi } from './axios';
 
 export const backendService = {
   // Auth endpoints
-  authGoogle: () => backendApi.get('/auth/google'),
-  authGithub: () => backendApi.get('/auth/github'),
   logout: () => backendApi.post('/api/user/logout'),
   getMe: () => backendApi.get('/api/user/me'),
 
@@ -23,9 +21,6 @@ export const backendService = {
     backendApi.post(`/api/events/${eventId}/photos/confirm`, data),
   searchFace: (eventId: string, data: any) => 
     backendApi.post(`/api/events/${eventId}/photos/search-face`, data, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
       timeout: 25000,
     }),
   downloadPhotos: (eventId: string, photoIds: string[]) => 

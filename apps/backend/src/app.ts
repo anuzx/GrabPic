@@ -1,6 +1,5 @@
 import express from "express";
 import helmet from "helmet";
-import cookieParser from "cookie-parser";
 import cors from "cors";
 import { config } from "./config/env";
 import { globalRateLimiter } from "./middlewares/rate-limiter/global-rate-limiter.middleware";
@@ -17,12 +16,9 @@ app.use(helmet() as unknown as express.RequestHandler);
 app.use(
   cors({
     origin: config.frontendUrl,
-    credentials: true,
   }),
 );
 app.use(express.json({limit:"10mb"}));
-app.use(cookieParser());
-
 app.use((req, _res, next) => {
   logger.info(`${req.method} ${req.path}`, {
     ip: req.ip,
