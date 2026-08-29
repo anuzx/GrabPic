@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import { redis } from "../../config/redis";
 
 interface TokenBucketOptions {
@@ -18,6 +20,13 @@ function getBucket(name: string): TokenBucketOptions | undefined {
   return buckets.get(name);
 }
 
+// Atomic Lua script: read → refill → check → deduct in one Redis transaction
+// Prevents TOCTOU race condition where concurrent requests both read stale state
+const TOKEN_BUCKET_SCRIPT = await readFile(
+  join(import.meta.dirname, "../../scripts/token-bucket.lua"),
+  "utf-8",
+);
+
 async function consumeTokens(
   userId: string,
   bucketName: string,
@@ -31,31 +40,21 @@ async function consumeTokens(
   const key = `token_bucket:${bucketName}:${userId}`;
   const now = Date.now();
 
-  const data = await redis.hGetAll(key);
-  let tokens = bucket.maxTokens;
-  let lastRefill = now;
+  const result = (await redis.eval(TOKEN_BUCKET_SCRIPT, {
+    keys: [key],
+    arguments: [
+      cost.toString(),
+      bucket.maxTokens.toString(),
+      bucket.refillIntervalMs.toString(),
+      bucket.refillRate.toString(),
+      now.toString(),
+    ],
+  })) as [number, number];
 
-  if (data.tokens && data.lastRefill) {
-    tokens = parseFloat(data.tokens);
-    lastRefill = parseInt(data.lastRefill, 10);
-    const elapsed = now - lastRefill;
-    const refillAmount = Math.floor(elapsed / bucket.refillIntervalMs) * bucket.refillRate;
-    if (refillAmount > 0) {
-      tokens = Math.min(bucket.maxTokens, tokens + refillAmount);
-      lastRefill = now;
-    }
-  }
-
-  if (tokens < cost) {
-    const waitMs = lastRefill + bucket.refillIntervalMs - now;
-    return { allowed: false, retryAfterMs: Math.max(1, waitMs) };
-  }
-
-  tokens -= cost;
-  await redis.hSet(key, { tokens: tokens.toString(), lastRefill: lastRefill.toString() });
-  await redis.expire(key, Math.ceil(bucket.refillIntervalMs * bucket.maxTokens / 1000) + 1);
-
-  return { allowed: true, retryAfterMs: 0 };
+  return {
+    allowed: result[0] === 1,
+    retryAfterMs: result[1],
+  };
 }
 
 function tokenBucketRateLimiter(bucketName: string) {

@@ -6,8 +6,30 @@ import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import { prisma } from "db";
+import { redis } from "../../config/redis";
+import crypto from "crypto";
 
-const googleAuth = asyncHandler((_req: Request, res: Response) => {
+const OAUTH_STATE_TTL_SECONDS = 300; // 5 minutes
+
+async function generateOAuthState(provider: string): Promise<string> {
+  const state = crypto.randomUUID();
+  await redis.set(`oauth_state:${provider}:${state}`, "1", {
+    EX: OAUTH_STATE_TTL_SECONDS,
+  });
+  return state;
+}
+
+async function verifyOAuthState(provider: string, state: string): Promise<boolean> {
+  const key = `oauth_state:${provider}:${state}`;
+  const exists = await redis.exists(key);
+  if (exists) {
+    await redis.del(key); // consume state (one-time use)
+  }
+  return exists === 1;
+}
+
+const googleAuth = asyncHandler(async (_req: Request, res: Response) => {
+  const state = await generateOAuthState("google");
   const params = new URLSearchParams({
     client_id: config.googleClientId,
     redirect_uri: config.googleRedirectUri,
@@ -15,6 +37,7 @@ const googleAuth = asyncHandler((_req: Request, res: Response) => {
     scope: "openid email profile",
     access_type: "offline",
     prompt: "consent",
+    state,
   });
 
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
@@ -22,8 +45,14 @@ const googleAuth = asyncHandler((_req: Request, res: Response) => {
 
 const googleCallback = asyncHandler(async (req: Request, res: Response) => {
   const code = req.query.code as string;
-  if (!code) {
-    throw new ApiError(400, "Missing authorization code");
+  const state = req.query.state as string;
+  if (!code || !state) {
+    throw new ApiError(400, "Missing authorization code or state");
+  }
+
+  const stateValid = await verifyOAuthState("google", state);
+  if (!stateValid) {
+    throw new ApiError(403, "Invalid or expired OAuth state");
   }
 
   const { data } = await axios.post(
@@ -99,11 +128,13 @@ const googleCallback = asyncHandler(async (req: Request, res: Response) => {
   res.redirect(302, `${config.frontendUrl}/dashboard?token=${encodeURIComponent(token)}`);
 });
 
-const githubAuth = asyncHandler((_req: Request, res: Response) => {
+const githubAuth = asyncHandler(async (_req: Request, res: Response) => {
+  const state = await generateOAuthState("github");
   const params = new URLSearchParams({
     client_id: config.githubClientId,
     redirect_uri: config.githubRedirectUri,
     scope: "read:user user:email",
+    state,
   });
 
   res.redirect(`https://github.com/login/oauth/authorize?${params}`);
@@ -111,8 +142,14 @@ const githubAuth = asyncHandler((_req: Request, res: Response) => {
 
 const githubCallback = asyncHandler(async (req: Request, res: Response) => {
   const code = req.query.code as string;
-  if (!code) {
-    throw new ApiError(400, "Missing authorization code");
+  const state = req.query.state as string;
+  if (!code || !state) {
+    throw new ApiError(400, "Missing authorization code or state");
+  }
+
+  const stateValid = await verifyOAuthState("github", state);
+  if (!stateValid) {
+    throw new ApiError(403, "Invalid or expired OAuth state");
   }
 
   const { data: tokenData } = await axios.post(
