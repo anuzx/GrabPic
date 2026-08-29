@@ -3,12 +3,19 @@ import { prisma } from "db";
 import { CreateEventSchema, JoinEventSchema } from "./event.schemas";
 import { ApiError } from "../../utils/ApiError";
 import { ApiResponse } from "../../utils/ApiResponse";
-import { fetchWithRetry, generateEventCode } from "./event.helpers";
+import { fetchFromAIService, generateEventCode } from "./event.helpers";
 import { cloudinary } from "../../config/cloudinary";
 import { config } from "../../config/env";
 import { redis } from "../../config/redis";
 import { ZipArchive } from "archiver";
 import { readFile, unlink } from "node:fs/promises";
+import { CircuitBreaker, CircuitOpenError } from "../../utils/circuit-breaker";
+
+const redisCircuitBreaker = new CircuitBreaker("redis-stream", {
+  failureThreshold: 5,
+  recoveryTimeoutMs: 30_000,
+  halfOpenMaxAttempts: 1,
+});
 
 const createEvent = asyncHandler(async (req, res) => {
   const userId = req.userId;
@@ -73,7 +80,7 @@ const joinEvent = asyncHandler(async (req, res) => {
       400,
       joined.role === "OWNER"
         ? "You are the owner of this event"
-        : "Already a member"
+        : "Already a member",
     );
   }
 
@@ -207,10 +214,12 @@ const removeEvent = asyncHandler(async (req, res) => {
     photos.map((p) => cloudinary.uploader.destroy(p.publicId)),
   );
 
-  await prisma.$executeRawUnsafe(
-    "DELETE FROM face_embeddings WHERE event_id = $1",
-    eventId,
-  );
+  try {
+    await prisma.$executeRawUnsafe(
+      "DELETE FROM face_embeddings WHERE event_id = $1",
+      eventId,
+    );
+  } catch {}
 
   await prisma.event.delete({
     where: { id: eventId },
@@ -322,14 +331,22 @@ const confirmPhotos = asyncHandler(async (req, res) => {
 
   //Push to Redis stream for AI processing
   //Stream: "photo:process"  Entry: { eventId, photoIds: JSON.stringify(photoIds) }
-  await redis.xAdd(
-    "photo:process",
-    "*", // auto-generated ID
-    {
-      eventId,
-      photoIds: JSON.stringify(photoIds),
-    },
-  );
+  try {
+    await redisCircuitBreaker.execute(() =>
+      redis.xAdd("photo:process", "*", {
+        eventId,
+        photoIds: JSON.stringify(photoIds),
+      }),
+    );
+  } catch (error) {
+    if (error instanceof CircuitOpenError) {
+      throw new ApiError(
+        503,
+        "AI processing service is temporarily unavailable. Photos are saved — please retry later.",
+      );
+    }
+    throw error;
+  }
 
   res.status(200).json(
     new ApiResponse(200, "Photos uploaded, processing queued", {
@@ -337,8 +354,6 @@ const confirmPhotos = asyncHandler(async (req, res) => {
     }),
   );
 });
-
-
 
 const searchFace = asyncHandler(async (req, res) => {
   const eventId = req.params.eventId! as string;
@@ -361,21 +376,29 @@ const searchFace = asyncHandler(async (req, res) => {
   const imageBuffer = file.buffer ?? (await readFile(file.path));
 
   try {
-    const aiResp = await fetchWithRetry(
+    const aiResp = await fetchFromAIService(
       `${config.aiServiceUrl}/search-face?eventId=${eventId}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
+        headers: {
+          "Content-Type": "application/octet-stream",
+          ...(config.aiServiceApiKey && {
+            Authorization: `Bearer ${config.aiServiceApiKey}`,
+          }),
+        },
         body: imageBuffer,
       },
     );
 
     if (!aiResp.ok) {
-      const errData = (await aiResp.json().catch(() => ({}))) as Record<string, string>;
+      const errData = (await aiResp.json().catch(() => ({}))) as Record<
+        string,
+        string
+      >;
 
       throw new ApiError(
         aiResp.status === 400 ? 400 : 502,
-        errData.detail || "Face search failed after retries"
+        errData.detail || "Face search failed after retries",
       );
     }
 
@@ -392,7 +415,11 @@ const searchFace = asyncHandler(async (req, res) => {
 
     res.json(new ApiResponse(200, "Photos found", { photos: ordered }));
   } catch (err: any) {
-    if (err.name === "TimeoutError" || err.name === "AbortError" || err.code === "ABORT_ERR") {
+    if (
+      err.name === "TimeoutError" ||
+      err.name === "AbortError" ||
+      err.code === "ABORT_ERR"
+    ) {
       throw new ApiError(504, "Face search timed out. Please try again.");
     }
     throw err;
@@ -439,20 +466,32 @@ const downloadPhotos = asyncHandler(async (req, res) => {
 
   //Concurrent with chunking (10 at a time)
   const CHUNK_SIZE = 10;
+  const failedPhotoIds: string[] = [];
+
   for (let i = 0; i < photos.length; i += CHUNK_SIZE) {
     const chunk = photos.slice(i, i + CHUNK_SIZE);
     const results = await Promise.allSettled(
       chunk.map(async (photo) => {
         const resp = await fetch(photo.url);
-        if (!resp.ok) return null;
+        if (!resp.ok) throw new Error(`Failed to fetch ${photo.id}`);
         return { id: photo.id, buffer: Buffer.from(await resp.arrayBuffer()) };
       }),
     );
     for (const r of results) {
-      if (r.status === "fulfilled" && r.value) {
+      if (r.status === "fulfilled") {
         archive.append(r.value.buffer, { name: `${r.value.id}.jpg` });
+      } else {
+        const idx = results.indexOf(r);
+        failedPhotoIds.push(chunk[idx]!.id);
       }
     }
+  }
+
+  if (failedPhotoIds.length > 0) {
+    archive.append(
+      `Some photos could not be downloaded: ${failedPhotoIds.join(", ")}`,
+      { name: "_errors.txt" },
+    );
   }
 
   await archive.finalize();

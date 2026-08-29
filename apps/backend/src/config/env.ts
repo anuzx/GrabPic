@@ -9,12 +9,13 @@ const _config = {
   githubRedirectUri: process.env.GITHUB_REDIRECT_URI!,
   jwtSecret: process.env.JWT_SECRET!,
   frontendUrl: process.env.FRONTEND_URL!,
-  nodeEnv: process.env.NODE_ENV ?? "development",
+  nodeEnv: process.env.NODE_ENV ?? "production",
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME!,
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY!,
   cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET!,
   redis_url: process.env.REDIS_URL!,
   aiServiceUrl: process.env.AI_SERVICE_URL!,
+  aiServiceApiKey: process.env.AI_SERVICE_API_KEY ?? "",
 } as const;
 
 const required = [

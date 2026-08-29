@@ -16,7 +16,7 @@ declare global {
 export const authenticate = async (
   req: Request,
   _res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const authHeader = req.headers.authorization;
@@ -34,9 +34,15 @@ export const authenticate = async (
     };
 
     if (decoded.jti) {
-      const blacklisted = await redis.get(`blacklist:jwt:${decoded.jti}`);
-      if (blacklisted) {
-        throw new ApiError(401, "Token has been revoked");
+      try {
+        const blacklisted = await redis.get(`blacklist:jwt:${decoded.jti}`);
+        if (blacklisted) {
+          throw new ApiError(401, "Token has been revoked");
+        }
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        // Redis is down — fail open (allow the request)
+        // Tradeoff: availability > strict blacklist enforcement
       }
     }
 

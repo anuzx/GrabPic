@@ -1,3 +1,5 @@
+import { CircuitBreaker, CircuitOpenError } from "../../utils/circuit-breaker";
+
 function generateEventCode(length = 6): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
@@ -7,6 +9,11 @@ function generateEventCode(length = 6): string {
   return code;
 }
 
+const aiServiceCircuitBreaker = new CircuitBreaker("ai-service-http", {
+  failureThreshold: 5,
+  recoveryTimeoutMs: 30_000,
+  halfOpenMaxAttempts: 1,
+});
 
 async function fetchWithRetry(
   url: string,
@@ -41,13 +48,26 @@ async function fetchWithRetry(
     }
 
     if (attempt < maxRetries) {
-      const backoff = Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 5000);
-      await new Promise((resolve) => setTimeout(resolve, backoff));
+      // Full Jitter: sleep = random(0, base * 2^attempt)
+      const maxSleep = 1000 * Math.pow(2, attempt);
+      const sleepMs = Math.min(Math.random() * maxSleep, 5000);
+      await new Promise((resolve) => setTimeout(resolve, sleepMs));
     }
   }
 
   throw lastError ?? new Error("Face search failed after retries");
 }
 
+async function fetchFromAIService(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  return aiServiceCircuitBreaker.execute(() => fetchWithRetry(url, options));
+}
 
-export { generateEventCode , fetchWithRetry };
+export {
+  generateEventCode,
+  fetchWithRetry,
+  fetchFromAIService,
+  aiServiceCircuitBreaker,
+};
